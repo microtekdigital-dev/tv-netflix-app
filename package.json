@@ -2,8 +2,11 @@
   "name": "@noriginmedia/tv-netflix-app",
   "private": true,
   "scripts": {
-    "eslint": "eslint src",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "start": "vite",
+    "eslint": "eslint src",
     "test": "jest"
   },
   "repository": {
