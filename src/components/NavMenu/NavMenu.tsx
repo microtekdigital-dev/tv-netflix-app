@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+﻿import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { useFocusable, FocusContext } from '@noriginmedia/norigin-spatial-navigation';
 import NavMenuItem from './NavMenuItem';
@@ -58,7 +58,7 @@ function NavMenu({ focusKey: focusKeyParam, onItemSelect }: NavMenuProps) {
   return (
     <FocusContext.Provider value={focusKey}>
       <MenuWrapper ref={ref} hasFocusedChild={hasFocusedChild}>
-        <NetflixLogo>NETFLIX</NetflixLogo>
+        <NetflixLogo>CINEMANIA</NetflixLogo>
         {MENU_ITEMS.map((item) => (
           <NavMenuItem
             key={item.id}
