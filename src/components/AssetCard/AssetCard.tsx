@@ -47,13 +47,37 @@ const CardImage = styled.img`
   border-radius: 4px;
 `;
 
-/* Inner wrapper clips the image/overlay without affecting the outer scale */
 const CardInner = styled.div`
   width: 100%;
   height: 100%;
   border-radius: 4px;
   overflow: hidden;
   position: relative;
+`;
+
+const CardPlaceholder = styled.div`
+  width: 100%;
+  height: 100%;
+  background: -webkit-linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  padding: 12px;
+`;
+
+const PlaceholderText = styled.div`
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+  word-break: break-word;
 `;
 
 const CardOverlay = styled.div<{ focused: boolean }>`
@@ -90,12 +114,16 @@ const CardMeta = styled.div`
 `;
 
 function AssetCard({ asset, onEnterPress, onFocus }: AssetCardProps) {
+  const [imgError, setImgError] = React.useState(false);
+
   const { ref, focused } = useFocusable<{ asset: Asset }, HTMLDivElement>({
     accessibilityLabel: asset.title,
     onEnterPress: (props, details) => onEnterPress(props?.asset ?? asset, details),
     onFocus,
     extraProps: { asset },
   });
+
+  const hasImage = asset.thumbnailUrl && !imgError;
 
   return (
     <CardWrapper
@@ -104,13 +132,17 @@ function AssetCard({ asset, onEnterPress, onFocus }: AssetCardProps) {
       onClick={() => onEnterPress(asset, { pressedKeys: {} })}
     >
       <CardInner>
-        <CardImage
-          src={asset.thumbnailUrl}
-          alt={asset.title}
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.backgroundColor = '#333';
-          }}
-        />
+        {hasImage ? (
+          <CardImage
+            src={asset.thumbnailUrl}
+            alt={asset.title}
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <CardPlaceholder>
+            <PlaceholderText>{asset.title}</PlaceholderText>
+          </CardPlaceholder>
+        )}
         <CardOverlay focused={focused}>
           <CardTitle focused={focused}>{asset.title}</CardTitle>
           {(asset.year || asset.genre) && (
