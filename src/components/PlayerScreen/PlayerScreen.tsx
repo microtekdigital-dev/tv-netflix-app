@@ -183,11 +183,12 @@ function extractTmdbId(embeds: Embed[]): string | null {
 
 function buildFallbackEmbeds(tmdbId: string): Embed[] {
   return [
-    { url: `https://vidsrc.to/embed/movie/${tmdbId}`,          server: 'VidSrc',     lang: 'Multi', quality: 'HD' },
-    { url: `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`,     server: 'VidSrc.me',  lang: 'Multi', quality: 'HD' },
-    { url: `https://www.2embed.cc/embed/${tmdbId}`,             server: '2Embed',     lang: 'Multi', quality: 'HD' },
-    { url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`, server: 'MultiEmbed', lang: 'Multi', quality: 'HD' },
-    { url: `https://embed.su/embed/movie/${tmdbId}`,            server: 'Embed.su',   lang: 'Multi', quality: 'HD' },
+    { url: `https://vidsrc.to/embed/movie/${tmdbId}?sub_lang=es`,           server: 'VidSrc ES',     lang: 'Espanol',  quality: 'HD' },
+    { url: `https://vidsrc.to/embed/movie/${tmdbId}?sub_lang=es-419`,       server: 'VidSrc Latino', lang: 'Latino',   quality: 'HD' },
+    { url: `https://vidsrc.me/embed/movie?tmdb=${tmdbId}&sub_lang=es`,      server: 'VidSrc.me ES',  lang: 'Espanol',  quality: 'HD' },
+    { url: `https://www.2embed.cc/embed/${tmdbId}`,                          server: '2Embed',        lang: 'Multi',    quality: 'HD' },
+    { url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es`,     server: 'MultiEmbed ES', lang: 'Espanol',  quality: 'HD' },
+    { url: `https://embed.su/embed/movie/${tmdbId}`,                         server: 'Embed.su',      lang: 'Multi',    quality: 'HD' },
   ];
 }
 
@@ -420,6 +421,7 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
 }
 
 export default PlayerScreen;
+
 
 
 
