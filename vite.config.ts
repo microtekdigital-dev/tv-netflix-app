@@ -10,18 +10,18 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // Point directly to source files since packages are not pre-built
+      // Vendored copies of the monorepo packages — works in any environment
       '@noriginmedia/norigin-spatial-navigation': path.resolve(
         __dirname,
-        '../../packages/legacy/src/index.ts'
+        'src/vendor/norigin-spatial-navigation/index.ts'
       ),
       '@noriginmedia/norigin-spatial-navigation-core': path.resolve(
         __dirname,
-        '../../packages/core/src/index.ts'
+        'src/vendor/norigin-spatial-navigation-core/index.ts'
       ),
       '@noriginmedia/norigin-spatial-navigation-react': path.resolve(
         __dirname,
-        '../../packages/react/src/index.ts'
+        'src/vendor/norigin-spatial-navigation-react/index.ts'
       ),
     }
   }
