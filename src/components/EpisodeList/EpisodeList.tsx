@@ -232,6 +232,23 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
         onClose();
         return;
       }
+      // Left/Right: change season. Up/Down: scroll episodes
+      if (e.key === 'ArrowLeft' || e.keyCode === 37) { e.preventDefault(); setSeason(s => Math.max(1, s - 1)); return; }
+      if (e.key === 'ArrowRight' || e.keyCode === 39) { e.preventDefault(); setSeason(s => Math.min(totalSeasons, s + 1)); return; }
+      if (e.key === 'ArrowDown' || e.keyCode === 40) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: 220, behavior: 'smooth' }); return; }
+      if (e.key === 'ArrowUp' || e.keyCode === 38) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: -220, behavior: 'smooth' }); return; }
+      // Left/Right: change season | Up/Down: scroll episodes | PageUp/L1/R1: change season
+      if (e.key === 'ArrowLeft' || e.keyCode === 37) { e.preventDefault(); setSeason(s => Math.max(1, s - 1)); return; }
+      if (e.key === 'ArrowRight' || e.keyCode === 39) { e.preventDefault(); setSeason(s => Math.min(totalSeasons, s + 1)); return; }
+      if (e.key === 'ArrowDown' || e.keyCode === 40) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: 220, behavior: 'smooth' }); return; }
+      if (e.key === 'ArrowUp' || e.keyCode === 38) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: -220, behavior: 'smooth' }); return; }
+      // Samsung/LG channel buttons and PageUp/Down
+      // Arrow keys: Left/Right = change season, Up/Down = scroll episodes
+      if (e.key === 'ArrowLeft' || e.keyCode === 37) { e.preventDefault(); setSeason(s => Math.max(1, s - 1)); return; }
+      if (e.key === 'ArrowRight' || e.keyCode === 39) { e.preventDefault(); setSeason(s => Math.min(totalSeasons, s + 1)); return; }
+      if (e.key === 'ArrowDown' || e.keyCode === 40) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: 220, behavior: 'smooth' }); return; }
+      if (e.key === 'ArrowUp' || e.keyCode === 38) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: -220, behavior: 'smooth' }); return; }
+      // PageUp/Down and LG/Samsung channel keys
       if (e.keyCode === 33 || e.keyCode === 427) { e.preventDefault(); setSeason(s => Math.max(1, s - 1)); }
       if (e.keyCode === 34 || e.keyCode === 428) { e.preventDefault(); setSeason(s => Math.min(totalSeasons, s + 1)); }
     };
