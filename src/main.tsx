@@ -19,6 +19,6 @@ init({
 initKeyMap();
 
 const root = ReactDOMClient.createRoot(
-  document.querySelector('#root') as HTMLElement
+  document.querySelector('#app-scaler') as HTMLElement
 );
 root.render(<App />);

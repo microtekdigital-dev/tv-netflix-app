@@ -2,15 +2,18 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <!-- TV browsers need explicit viewport — no scaling, fixed 1920px width -->
-    <meta name="viewport" content="width=1920, initial-scale=1.0, user-scalable=no" />
-    <!-- Disable phone number detection on Samsung Tizen -->
+    <!--
+      Samsung Tizen / LG webOS viewport strategy:
+      - Use device-width so the browser reports the actual screen width
+      - initial-scale=1.0 ensures no zoom
+      - The app container is fixed at 1920x1080 and scaled via CSS transform
+        to always fill the screen regardless of reported resolution
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <meta name="format-detection" content="telephone=no" />
-    <!-- Prevent iOS/webOS from treating this as a web app shortcut -->
     <meta name="mobile-web-app-capable" content="yes" />
     <title>TV Netflix App</title>
     <style>
-      /* Reset — applied before React mounts to avoid FOUC */
       *, *::before, *::after {
         -webkit-box-sizing: border-box;
         box-sizing: border-box;
@@ -18,27 +21,70 @@
         padding: 0;
         border: 0;
       }
-      html, body {
-        width: 1920px;
-        height: 1080px;
+
+      html {
+        width: 100%;
+        height: 100%;
         overflow: hidden;
         background-color: #141414;
-        /* Disable text selection — not useful on TV */
+      }
+
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #141414;
         -webkit-user-select: none;
         -moz-user-select: none;
         user-select: none;
-        /* Disable tap highlight on webOS / Tizen */
         -webkit-tap-highlight-color: transparent;
       }
+
       #root {
-        width: 1920px;
-        height: 1080px;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
       }
+
+      /*
+        Scale the 1920x1080 app to fill any screen size.
+        This is the standard technique for TV apps deployed on
+        Samsung Tizen and LG webOS with varying reported resolutions.
+      */
+      #app-scaler {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1920px;
+        height: 1080px;
+        -webkit-transform-origin: top left;
+        transform-origin: top left;
+      }
     </style>
+    <script>
+      // Scale the app container to fill the actual screen
+      function scaleApp() {
+        var scaler = document.getElementById('app-scaler');
+        if (!scaler) return;
+        var scaleX = window.innerWidth  / 1920;
+        var scaleY = window.innerHeight / 1080;
+        var scale  = Math.min(scaleX, scaleY);
+        scaler.style.webkitTransform = 'scale(' + scale + ')';
+        scaler.style.transform       = 'scale(' + scale + ')';
+        // Center if aspect ratio doesn't match
+        var offsetX = (window.innerWidth  - 1920 * scale) / 2;
+        var offsetY = (window.innerHeight - 1080 * scale) / 2;
+        scaler.style.left = offsetX + 'px';
+        scaler.style.top  = offsetY + 'px';
+      }
+      window.addEventListener('load',   scaleApp);
+      window.addEventListener('resize', scaleApp);
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-scaler"></div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
