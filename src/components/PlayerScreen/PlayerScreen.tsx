@@ -170,6 +170,7 @@ const StatusText = styled.div`
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const HIDE_DELAY = 4000;
+const SERIES_HIDE_DELAY = 8000; // longer delay for series to allow season/episode selection
 
 function extractTmdbId(embeds: Embed[]): string | null {
   for (const e of embeds) {
@@ -237,7 +238,7 @@ function PlayerScreen({ slug, title, isSeries = false, onClose }: PlayerScreenPr
   const showControls = useCallback(() => {
     setControlsVisible(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setControlsVisible(false), HIDE_DELAY);
+    hideTimerRef.current = setTimeout(() => setControlsVisible(false), isSeries ? SERIES_HIDE_DELAY : HIDE_DELAY);
   }, []);
 
   useEffect(() => {
@@ -334,6 +335,16 @@ function PlayerScreen({ slug, title, isSeries = false, onClose }: PlayerScreenPr
       setCurrentIndex(focusedBtn.index);
     }
   }, [focusedBtn, onClose]);
+
+  // ── Recalculate series embeds when season/episode changes ──────────────────
+  useEffect(() => {
+    if (!isSeries || !seriesTmdbId) return;
+    const newFallbacks = buildSeriesFallbackEmbeds(seriesTmdbId, season, episode);
+    const dbUrls = new Set(dbEmbeds.map((e: Embed) => e.url));
+    setExtraEmbeds(newFallbacks.filter((e: Embed) => !dbUrls.has(e.url)));
+    setCurrentSource(dbEmbeds.length > 0 ? 'db' : 'extra');
+    setCurrentIndex(0);
+  }, [season, episode, seriesTmdbId, isSeries]);
 
   // ── Load embeds ────────────────────────────────────────────────────────────
 
