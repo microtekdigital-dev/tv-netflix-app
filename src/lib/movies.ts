@@ -127,6 +127,7 @@ function dbSerieToAsset(s: DbSerie): Asset {
     year: s.year ? parseInt(s.year, 10) : undefined,
     genre: s.genre?.[0] ?? undefined,
     rating: s.rating ? String(s.rating) : undefined,
+    isSeries: true,
   };
 }
 

@@ -147,7 +147,7 @@ function App() {
         <PlayerScreen
           slug={playingAsset.id}
           title={playingAsset.title}
-          isSeries={activeMenuItemId === 'series'}
+          isSeries={!!playingAsset.isSeries}
           onClose={onClosePlayer}
         />
       )}

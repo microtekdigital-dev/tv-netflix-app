@@ -8,6 +8,7 @@ export interface Asset {
   genre?: string;
   duration?: string;
   rating?: string;
+  isSeries?: boolean;
 }
 
 export interface ContentCategory {
