@@ -169,6 +169,13 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
   const scrollRef = useRef<HTMLDivElement>(null);
   const seasonTabsRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll active season tab into view
+  useEffect(() => {
+    if (!seasonTabsRef.current) return;
+    const activeTab = seasonTabsRef.current.querySelector('[data-active="true"]') as HTMLElement;
+    if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [season]);
+
   const { ref: backRef, focused: backFocused, focusSelf } = useFocusable<object, HTMLButtonElement>({
     onEnterPress: onClose,
     focusKey: 'EP_BACK',
@@ -223,7 +230,10 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
       if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009) {
         e.preventDefault();
         onClose();
+        return;
       }
+      if (e.keyCode === 33 || e.keyCode === 427) { e.preventDefault(); setSeason(s => Math.max(1, s - 1)); }
+      if (e.keyCode === 34 || e.keyCode === 428) { e.preventDefault(); setSeason(s => Math.min(totalSeasons, s + 1)); }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -247,7 +257,7 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
 
           <SeasonTabs ref={seasonTabsRef}>
             {Array.from({ length: totalSeasons }, (_, i) => i + 1).map(s => (
-              <SeasonTab key={s} active={season === s} focused={false}
+              <SeasonTab key={s} active={season === s} focused={false} data-active={season === s ? 'true' : 'false'}
                 onClick={() => setSeason(s)}>
                 Temporada {s}
               </SeasonTab>
