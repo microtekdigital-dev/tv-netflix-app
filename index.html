@@ -71,7 +71,6 @@
         var scale  = Math.min(scaleX, scaleY);
         scaler.style.webkitTransform = 'scale(' + scale + ')';
         scaler.style.transform       = 'scale(' + scale + ')';
-        // Center if aspect ratio doesn't match
         var offsetX = (window.innerWidth  - 1920 * scale) / 2;
         var offsetY = (window.innerHeight - 1080 * scale) / 2;
         scaler.style.left = offsetX + 'px';
@@ -79,6 +78,24 @@
       }
       window.addEventListener('load',   scaleApp);
       window.addEventListener('resize', scaleApp);
+
+      // Request fullscreen on first user interaction (key or click).
+      // This hides the browser chrome (URL bar, buttons) on Samsung Tizen
+      // and any other browser that supports the Fullscreen API.
+      function requestFullscreen() {
+        var el = document.documentElement;
+        var req = el.requestFullscreen
+          || el.webkitRequestFullscreen
+          || el.mozRequestFullScreen
+          || el.msRequestFullscreen;
+        if (req) {
+          req.call(el).catch(function() {});
+        }
+        document.removeEventListener('keydown', requestFullscreen);
+        document.removeEventListener('click',   requestFullscreen);
+      }
+      document.addEventListener('keydown', requestFullscreen);
+      document.addEventListener('click',   requestFullscreen);
     </script>
   </head>
   <body>
