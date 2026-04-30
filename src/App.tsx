@@ -118,6 +118,11 @@ function App() {
     [rowsRef]
   );
 
+  // Featured movies for the banner carousel — top rated with backdrop
+  const featuredMovies = categories.length > 0
+    ? categories[0].assets.filter(a => a.imageUrl).slice(0, 8)
+    : [];
+
   const isSearchActive = activeMenuItemId === 'search';
 
   return (
@@ -141,7 +146,7 @@ function App() {
           />
         ) : (
           <>
-            <HeroBanner asset={selectedAsset} onPlayPress={onPlayPress} />
+            <HeroBanner asset={selectedAsset} featuredMovies={featuredMovies} onPlayPress={onPlayPress} />
             <ScrollingRows ref={rowsRef}>
               {categories.map((category) => (
                 <ContentRow
