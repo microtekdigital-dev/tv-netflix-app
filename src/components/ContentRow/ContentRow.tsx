@@ -33,12 +33,13 @@ const RowTitle = styled.div`
 
 const ScrollingWrapper = styled.div`
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
   flex-shrink: 1;
   flex-grow: 1;
   padding-left: 60px;
-  padding-bottom: 8px;
+  padding-top: 4px;
+  padding-bottom: 20px;
 `;
 
 const ScrollingContent = styled.div`
