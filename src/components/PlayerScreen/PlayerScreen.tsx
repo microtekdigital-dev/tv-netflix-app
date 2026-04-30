@@ -185,7 +185,6 @@ function buildFallbackEmbeds(tmdbId: string): Embed[] {
   return [
     { url: `https://vidsrc.to/embed/movie/${tmdbId}`,          server: 'VidSrc',     lang: 'Multi', quality: 'HD' },
     { url: `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`,     server: 'VidSrc.me',  lang: 'Multi', quality: 'HD' },
-    { url: `https://vidlink.pro/movie/${tmdbId}`,               server: 'VidLink',    lang: 'Multi', quality: 'HD' },
     { url: `https://www.2embed.cc/embed/${tmdbId}`,             server: '2Embed',     lang: 'Multi', quality: 'HD' },
     { url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`, server: 'MultiEmbed', lang: 'Multi', quality: 'HD' },
     { url: `https://embed.su/embed/movie/${tmdbId}`,            server: 'Embed.su',   lang: 'Multi', quality: 'HD' },
@@ -195,7 +194,6 @@ function buildFallbackEmbeds(tmdbId: string): Embed[] {
 function buildSlugFallbackEmbeds(slug: string): Embed[] {
   return [
     { url: `https://vidsrc.to/embed/movie/${slug}`,  server: 'VidSrc',  lang: 'Multi', quality: 'HD' },
-    { url: `https://vidlink.pro/movie/${slug}`,       server: 'VidLink', lang: 'Multi', quality: 'HD' },
     { url: `https://www.2embed.cc/embed/${slug}`,     server: '2Embed',  lang: 'Multi', quality: 'HD' },
   ];
 }
@@ -354,6 +352,7 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
             src={currentEmbed?.url}
             allowFullScreen
             allow="autoplay; fullscreen; encrypted-media"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-fullscreen"
           />
         </IframeWrapper>
       )}
