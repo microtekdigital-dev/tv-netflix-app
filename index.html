@@ -96,6 +96,16 @@
       }
       document.addEventListener('keydown', requestFullscreen);
       document.addEventListener('click',   requestFullscreen);
+
+      // Samsung Tizen: register remote keys early so they fire as keydown.
+      // Without this, the Smart Remote may only move the cursor pointer.
+      try {
+        if (window.tizen && window.tizen.tvinputdevice) {
+          ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Return','Back'].forEach(function(k) {
+            try { window.tizen.tvinputdevice.registerKey(k); } catch(e) {}
+          });
+        }
+      } catch(e) {}
     </script>
   </head>
   <body>
