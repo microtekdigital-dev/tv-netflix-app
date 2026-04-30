@@ -328,7 +328,9 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
         const embeds: Embed[] = data?.embeds ?? [];
         setDbEmbeds(embeds);
         const tmdbId = extractTmdbId(embeds);
-        setExtraEmbeds(tmdbId ? buildFallbackEmbeds(tmdbId) : buildSlugFallbackEmbeds(slug));
+        const allFallbacks = tmdbId ? buildFallbackEmbeds(tmdbId) : buildSlugFallbackEmbeds(slug);
+        const dbUrls = new Set(embeds.map((e: Embed) => e.url));
+        setExtraEmbeds(allFallbacks.filter((e: Embed) => !dbUrls.has(e.url)));
         setCurrentSource(embeds.length > 0 ? 'db' : 'extra');
         setCurrentIndex(0);
         setFocusedBtn({ source: 'back', index: 0 });
@@ -352,7 +354,7 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
             src={currentEmbed?.url}
             allowFullScreen
             allow="autoplay; fullscreen; encrypted-media"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-fullscreen"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-fullscreen allow-popups allow-popups-to-escape-sandbox"
           />
         </IframeWrapper>
       )}
@@ -419,4 +421,5 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
 }
 
 export default PlayerScreen;
+
 
