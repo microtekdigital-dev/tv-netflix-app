@@ -156,13 +156,18 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, onSe
   // Resolve tmdb_id from Supabase if not provided
   useEffect(() => {
     if (tmdbIdProp) { setResolvedTmdbId(tmdbIdProp); return; }
-    if (!slug) return;
+    if (!slug) { setLoading(false); return; }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('series') as any).select('tmdb_id').eq('slug', slug).single()
+    (supabase.from('series') as any).select('tmdb_id,seasons').eq('slug', slug).single()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then(({ data }: { data: any }) => {
-        if (data?.tmdb_id) setResolvedTmdbId(data.tmdb_id);
-      });
+        if (data?.tmdb_id) {
+          setResolvedTmdbId(data.tmdb_id);
+        } else {
+          setLoading(false); // no tmdb_id available
+        }
+      })
+      .catch(() => setLoading(false));
   }, [slug, tmdbIdProp]);
 
   useEffect(() => {
@@ -171,7 +176,17 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, onSe
     setEpisodes([]);
     fetch(`https://api.themoviedb.org/3/tv/${resolvedTmdbId}/season/${season}?api_key=${TMDB_KEY}&language=es-ES`)
       .then(r => r.json())
-      .then(d => setEpisodes(d.episodes ?? []))
+      .then(d => {
+        const eps = d.episodes ?? [];
+        if (eps.length > 0) {
+          setEpisodes(eps);
+        } else {
+          // Fallback to English if no Spanish episodes
+          return fetch(`https://api.themoviedb.org/3/tv/${resolvedTmdbId}/season/${season}?api_key=${TMDB_KEY}&language=en-US`)
+            .then(r => r.json())
+            .then(d2 => setEpisodes(d2.episodes ?? []));
+        }
+      })
       .catch(() => setEpisodes([]))
       .finally(() => setLoading(false));
   }, [resolvedTmdbId, season]);
@@ -218,6 +233,8 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, onSe
         <EpisodeScroll ref={scrollRef}>
           {loading ? (
             <LoadingText>Cargando episodios...</LoadingText>
+          ) : !resolvedTmdbId ? (
+            <LoadingText>Esta serie no tiene datos de episodios disponibles</LoadingText>
           ) : episodes.length === 0 ? (
             <LoadingText>No hay episodios disponibles</LoadingText>
           ) : (
