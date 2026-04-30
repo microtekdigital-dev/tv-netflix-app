@@ -54,6 +54,11 @@ const Title = styled.h1`
 
 const SeasonTabs = styled.div`
   display: flex; gap: 12px; margin-bottom: 28px;
+  overflow-x: auto; overflow-y: hidden;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+  flex-shrink: 0;
 `;
 
 const SeasonTab = styled.button<{ active: boolean; focused: boolean }>`
@@ -145,6 +150,7 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, onSe
   const [loading, setLoading] = useState(true);
   const [resolvedTmdbId, setResolvedTmdbId] = useState<number | null>(tmdbIdProp ?? null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const seasonTabsRef = useRef<HTMLDivElement>(null);
 
   const { ref: backRef, focused: backFocused, focusSelf } = useFocusable<object, HTMLButtonElement>({
     onEnterPress: onClose,
@@ -221,7 +227,7 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, onSe
           <Title>{seriesTitle} — Episodios</Title>
         </Header>
 
-        <SeasonTabs>
+        <SeasonTabs ref={seasonTabsRef}>
           {Array.from({ length: totalSeasons }, (_, i) => i + 1).map(s => (
             <SeasonTab key={s} active={season === s} focused={false}
               onClick={() => setSeason(s)}>
