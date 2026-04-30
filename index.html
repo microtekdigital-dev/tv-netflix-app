@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- TV browsers need explicit viewport — no scaling, fixed 1920px width -->
+    <meta name="viewport" content="width=1920, initial-scale=1.0, user-scalable=no" />
+    <!-- Disable phone number detection on Samsung Tizen -->
+    <meta name="format-detection" content="telephone=no" />
+    <!-- Prevent iOS/webOS from treating this as a web app shortcut -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>TV Netflix App</title>
+    <style>
+      /* Reset — applied before React mounts to avoid FOUC */
+      *, *::before, *::after {
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+      html, body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background-color: #141414;
+        /* Disable text selection — not useful on TV */
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        user-select: none;
+        /* Disable tap highlight on webOS / Tizen */
+        -webkit-tap-highlight-color: transparent;
+      }
+      #root {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

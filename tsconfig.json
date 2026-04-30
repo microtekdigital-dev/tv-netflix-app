@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "jest"],
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@noriginmedia/norigin-spatial-navigation": ["./src/__mocks__/norigin-spatial-navigation.ts"],
+      "@noriginmedia/norigin-spatial-navigation-core": ["../../packages/core/src/index.ts"]
+    }
+  },
+  "include": ["src", "../../packages/core/src", "../../packages/react/src"],
+  "exclude": ["node_modules"]
+}
