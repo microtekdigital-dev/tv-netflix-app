@@ -49,7 +49,7 @@ const Controls = styled.div<{ visible: boolean }>`
   left: 0;
   right: 0;
   bottom: 0;
-  pointer-events: ${({ visible }) => visible ? 'all' : 'none'};
+  pointer-events: none;
   opacity: ${({ visible }) => visible ? 1 : 0};
   -webkit-transition: opacity 0.3s ease;
   transition: opacity 0.3s ease;
@@ -68,6 +68,7 @@ const TopBar = styled.div`
   padding: 24px 40px;
   background: -webkit-linear-gradient(top, rgba(0,0,0,0.95), transparent);
   background: linear-gradient(to bottom, rgba(0,0,0,0.95), transparent);
+  pointer-events: all;
 `;
 
 const BackBtn = styled.button<{ active: boolean }>`
@@ -102,6 +103,7 @@ const BottomBar = styled.div`
   padding: 24px 40px;
   background: -webkit-linear-gradient(bottom, rgba(0,0,0,0.95), transparent);
   background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
+  pointer-events: all;
 `;
 
 const ServerSection = styled.div`
@@ -238,8 +240,7 @@ function PlayerScreen({ slug, title, isSeries = false, onClose }: PlayerScreenPr
   const showControls = useCallback(() => {
     setControlsVisible(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    if (isSeries) return; // series: controles siempre visibles
-    hideTimerRef.current = setTimeout(() => setControlsVisible(false), HIDE_DELAY);
+    hideTimerRef.current = setTimeout(() => setControlsVisible(false), isSeries ? 5000 : HIDE_DELAY);
   }, []);
 
   useEffect(() => {
