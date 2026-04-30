@@ -12,6 +12,7 @@ interface Embed {
 interface PlayerScreenProps {
   slug: string;
   title: string;
+  isSeries?: boolean;
   onClose: () => void;
 }
 
@@ -199,9 +200,19 @@ function buildSlugFallbackEmbeds(slug: string): Embed[] {
   ];
 }
 
+function buildSeriesFallbackEmbeds(tmdbId: string, season: number, episode: number): Embed[] {
+  return [
+    { url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}?sub_lang=es`,          server: 'VidSrc ES',     lang: 'Espanol', quality: 'HD' },
+    { url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}?sub_lang=es-419`,      server: 'VidSrc Latino', lang: 'Latino',  quality: 'HD' },
+    { url: `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`,  server: 'VidSrc.me',     lang: 'Multi',   quality: 'HD' },
+    { url: `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`,               server: '2Embed TV',     lang: 'Multi',   quality: 'HD' },
+    { url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}`,     server: 'MultiEmbed',    lang: 'Multi',   quality: 'HD' },
+  ];
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
-function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
+function PlayerScreen({ slug, title, isSeries = false, onClose }: PlayerScreenProps) {
   const [dbEmbeds, setDbEmbeds] = useState<Embed[]>([]);
   const [extraEmbeds, setExtraEmbeds] = useState<Embed[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -210,6 +221,10 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
   const [controlsVisible, setControlsVisible] = useState(true);
   // Which button is highlighted by keyboard navigation
   const [focusedBtn, setFocusedBtn] = useState<{ source: 'back' | 'db' | 'extra'; index: number }>({ source: 'back', index: 0 });
+  const [season, setSeason] = useState(1);
+  const [episode, setEpisode] = useState(1);
+  const [totalSeasons, setTotalSeasons] = useState(1);
+  const [seriesTmdbId, setSeriesTmdbId] = useState<string | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allEmbeds = [
@@ -324,12 +339,16 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
 
   useEffect(() => {
     setLoading(true);
-    supabase.from('movies').select('embeds').eq('slug', slug).single()
+    const table = isSeries ? 'series' : 'movies';
+    const fields = isSeries ? 'embeds,tmdb_id,seasons' : 'embeds';
+    supabase.from(table).select(fields).eq('slug', slug).single()
       .then(({ data }) => {
         const embeds: Embed[] = data?.embeds ?? [];
+        const tid = isSeries && data?.tmdb_id ? String(data.tmdb_id) : extractTmdbId(embeds);
+        if (isSeries && data?.seasons) setTotalSeasons(data.seasons);
+        if (tid) setSeriesTmdbId(tid);
         setDbEmbeds(embeds);
-        const tmdbId = extractTmdbId(embeds);
-        const allFallbacks = tmdbId ? buildFallbackEmbeds(tmdbId) : buildSlugFallbackEmbeds(slug);
+        const allFallbacks = isSeries && tid ? buildSeriesFallbackEmbeds(tid, season, episode) : (tid ? buildFallbackEmbeds(tid) : buildSlugFallbackEmbeds(slug));
         const dbUrls = new Set(embeds.map((e: Embed) => e.url));
         setExtraEmbeds(allFallbacks.filter((e: Embed) => !dbUrls.has(e.url)));
         setCurrentSource(embeds.length > 0 ? 'db' : 'extra');
@@ -375,6 +394,27 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
           </TopBar>
 
           <BottomBar>
+            {isSeries && (
+              <ServerSection>
+                <SectionLabel>Temporada / Episodio</SectionLabel>
+                <ButtonRow>
+                  {Array.from({length: totalSeasons}, (_, i) => i + 1).map(s => (
+                    <ServerBtn key={`s${s}`} active={season === s} highlighted={false}
+                      onClick={() => { setSeason(s); setEpisode(1); }}>
+                      T{s}
+                    </ServerBtn>
+                  ))}
+                </ButtonRow>
+                <ButtonRow style={{marginTop: '8px'}}>
+                  {Array.from({length: 20}, (_, i) => i + 1).map(ep => (
+                    <ServerBtn key={`ep${ep}`} active={episode === ep} highlighted={false}
+                      onClick={() => setEpisode(ep)}>
+                      E{ep}
+                    </ServerBtn>
+                  ))}
+                </ButtonRow>
+              </ServerSection>
+            )}
             {dbEmbeds.length > 0 && (
               <ServerSection>
                 <SectionLabel>Servidores</SectionLabel>
@@ -422,6 +462,7 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
 }
 
 export default PlayerScreen;
+
 
 
 

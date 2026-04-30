@@ -120,7 +120,6 @@ function App() {
   const onPlayPress = useCallback((asset: Asset) => {
     setPlayingAsset(asset);
   }, []);
-
   const onClosePlayer = useCallback(() => {
     setPlayingAsset(null);
   }, []);
@@ -148,6 +147,7 @@ function App() {
         <PlayerScreen
           slug={playingAsset.id}
           title={playingAsset.title}
+          isSeries={activeMenuItemId === 'series'}
           onClose={onClosePlayer}
         />
       )}
