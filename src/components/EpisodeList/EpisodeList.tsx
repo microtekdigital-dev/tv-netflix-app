@@ -1,6 +1,7 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { useFocusable, FocusContext } from '@noriginmedia/norigin-spatial-navigation';
+import { supabase } from '../../lib/supabase';
 
 interface Episode {
   episode_number: number;
@@ -11,7 +12,8 @@ interface Episode {
 }
 
 interface EpisodeListProps {
-  tmdbId: number;
+  slug?: string;
+  tmdbId?: number;
   totalSeasons: number;
   seriesTitle: string;
   onSelectEpisode: (season: number, episode: number) => void;
@@ -137,10 +139,11 @@ function EpCard({ ep, season, onSelect }: { ep: Episode; season: number; onSelec
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-function EpisodeList({ tmdbId, totalSeasons, seriesTitle, onSelectEpisode, onClose }: EpisodeListProps) {
+function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, onSelectEpisode, onClose }: EpisodeListProps) {
   const [season, setSeason] = useState(1);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resolvedTmdbId, setResolvedTmdbId] = useState<number | null>(tmdbIdProp ?? null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { ref: backRef, focused: backFocused, focusSelf } = useFocusable<object, HTMLButtonElement>({
@@ -150,15 +153,28 @@ function EpisodeList({ tmdbId, totalSeasons, seriesTitle, onSelectEpisode, onClo
 
   useEffect(() => { focusSelf(); }, [focusSelf]);
 
+  // Resolve tmdb_id from Supabase if not provided
   useEffect(() => {
+    if (tmdbIdProp) { setResolvedTmdbId(tmdbIdProp); return; }
+    if (!slug) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('series') as any).select('tmdb_id').eq('slug', slug).single()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data }: { data: any }) => {
+        if (data?.tmdb_id) setResolvedTmdbId(data.tmdb_id);
+      });
+  }, [slug, tmdbIdProp]);
+
+  useEffect(() => {
+    if (!resolvedTmdbId) return;
     setLoading(true);
     setEpisodes([]);
-    fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${season}?api_key=${TMDB_KEY}&language=es-ES`)
+    fetch(`https://api.themoviedb.org/3/tv/${resolvedTmdbId}/season/${season}?api_key=${TMDB_KEY}&language=es-ES`)
       .then(r => r.json())
       .then(d => setEpisodes(d.episodes ?? []))
       .catch(() => setEpisodes([]))
       .finally(() => setLoading(false));
-  }, [tmdbId, season]);
+  }, [resolvedTmdbId, season]);
 
   const handleSelect = useCallback((s: number, e: number) => {
     onSelectEpisode(s, e);

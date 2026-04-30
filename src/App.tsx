@@ -184,8 +184,9 @@ function App() {
           onClose={() => setServerSelectAsset(null)}
         />
       )}
-      {episodeListAsset && episodeListAsset.tmdbId && (
+      {episodeListAsset && (
         <EpisodeList
+          slug={episodeListAsset.id}
           tmdbId={episodeListAsset.tmdbId}
           totalSeasons={episodeListAsset.totalSeasons ?? 1}
           seriesTitle={episodeListAsset.title}
