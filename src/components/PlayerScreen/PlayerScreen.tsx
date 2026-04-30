@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import styled, { keyframes } from 'styled-components';
-import { useFocusable, FocusContext } from '@noriginmedia/norigin-spatial-navigation';
+import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 
 interface Embed {
@@ -15,18 +14,6 @@ interface PlayerScreenProps {
   title: string;
   onClose: () => void;
 }
-
-// ── Animations ────────────────────────────────────────────────────────────────
-
-const fadeIn = keyframes`
-  from { opacity: 0; -webkit-transform: translateY(10px); transform: translateY(10px); }
-  to   { opacity: 1; -webkit-transform: translateY(0);    transform: translateY(0); }
-`;
-
-const fadeOut = keyframes`
-  from { opacity: 1; }
-  to   { opacity: 0; }
-`;
 
 // ── Styled components ─────────────────────────────────────────────────────────
 
@@ -63,8 +50,6 @@ const Controls = styled.div<{ visible: boolean }>`
   bottom: 0;
   pointer-events: ${({ visible }) => visible ? 'all' : 'none'};
   opacity: ${({ visible }) => visible ? 1 : 0};
-  -webkit-animation: ${({ visible }) => visible ? fadeIn : fadeOut} 0.3s ease forwards;
-  animation: ${({ visible }) => visible ? fadeIn : fadeOut} 0.3s ease forwards;
   -webkit-transition: opacity 0.3s ease;
   transition: opacity 0.3s ease;
 `;
@@ -80,22 +65,20 @@ const TopBar = styled.div`
   -webkit-align-items: center;
   align-items: center;
   padding: 24px 40px;
-  background: -webkit-linear-gradient(top, rgba(0,0,0,0.9), transparent);
-  background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+  background: -webkit-linear-gradient(top, rgba(0,0,0,0.95), transparent);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.95), transparent);
 `;
 
-const BackBtn = styled.button<{ focused: boolean }>`
-  background-color: ${({ focused }) => focused ? 'rgba(255,255,255,0.2)' : 'transparent'};
+const BackBtn = styled.button<{ active: boolean }>`
+  background-color: ${({ active }) => active ? 'rgba(255,255,255,0.25)' : 'transparent'};
   color: #fff;
-  border: ${({ focused }) => focused ? '2px solid #fff' : '2px solid rgba(255,255,255,0.4)'};
+  border: ${({ active }) => active ? '2px solid #fff' : '2px solid rgba(255,255,255,0.5)'};
   border-radius: 4px;
   padding: 10px 24px;
   font-size: 18px;
   font-family: 'Segoe UI', Arial, sans-serif;
   cursor: pointer;
   margin-right: 24px;
-  -webkit-transition: background-color 0.15s ease;
-  transition: background-color 0.15s ease;
 `;
 
 const MovieTitle = styled.h2`
@@ -116,8 +99,8 @@ const BottomBar = styled.div`
   left: 0;
   right: 0;
   padding: 24px 40px;
-  background: -webkit-linear-gradient(bottom, rgba(0,0,0,0.9), transparent);
-  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+  background: -webkit-linear-gradient(bottom, rgba(0,0,0,0.95), transparent);
+  background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
 `;
 
 const ServerSection = styled.div`
@@ -142,19 +125,32 @@ const ButtonRow = styled.div`
   gap: 10px;
 `;
 
-const ServerBtn = styled.button<{ focused: boolean; active: boolean }>`
-  background-color: ${({ focused, active }) =>
-    active ? '#e50914' : focused ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'};
-  color: ${({ active }) => active ? '#fff' : '#ccc'};
-  border: ${({ focused }) => focused ? '2px solid #fff' : '2px solid transparent'};
+const ServerBtn = styled.button<{ active: boolean; highlighted: boolean }>`
+  background-color: ${({ active, highlighted }) =>
+    active ? '#e50914' : highlighted ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)'};
+  color: #fff;
+  border: ${({ highlighted }) => highlighted ? '2px solid #fff' : '2px solid transparent'};
   border-radius: 4px;
-  padding: 8px 18px;
-  font-size: 14px;
+  padding: 10px 20px;
+  font-size: 15px;
   font-weight: ${({ active }) => active ? '700' : '400'};
   font-family: 'Segoe UI', Arial, sans-serif;
   cursor: pointer;
+  white-space: nowrap;
   -webkit-transition: background-color 0.15s ease;
   transition: background-color 0.15s ease;
+`;
+
+const HintText = styled.div`
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  -webkit-transform: translateX(-50%);
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.35);
+  font-size: 14px;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  pointer-events: none;
   white-space: nowrap;
 `;
 
@@ -170,21 +166,9 @@ const StatusText = styled.div`
   text-align: center;
 `;
 
-const HintText = styled.div`
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  -webkit-transform: translateX(-50%);
-  transform: translateX(-50%);
-  color: rgba(255,255,255,0.4);
-  font-size: 14px;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  pointer-events: none;
-`;
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const HIDE_DELAY = 4000; // ms before controls auto-hide
+const HIDE_DELAY = 4000;
 
 function extractTmdbId(embeds: Embed[]): string | null {
   for (const e of embeds) {
@@ -216,33 +200,6 @@ function buildSlugFallbackEmbeds(slug: string): Embed[] {
   ];
 }
 
-// ── Focusable sub-components ──────────────────────────────────────────────────
-
-function BackButton({ onPress }: { onPress: () => void }) {
-  const { ref, focused } = useFocusable<object, HTMLButtonElement>({
-    onEnterPress: onPress,
-    focusKey: 'PLAYER_BACK',
-  });
-  return (
-    <BackBtn ref={ref} focused={focused} onClick={onPress}>
-      &#8592; Volver
-    </BackBtn>
-  );
-}
-
-function ServerButton({ embed, index, active, onPress, focusKey }: {
-  embed: Embed; index: number; active: boolean; onPress: () => void; focusKey: string;
-}) {
-  const { ref, focused } = useFocusable<object, HTMLButtonElement>({ onEnterPress: onPress, focusKey });
-  const label = embed.server || embed.lang || `Servidor ${index + 1}`;
-  const langTag = embed.lang && embed.lang !== embed.server ? ` · ${embed.lang}` : '';
-  return (
-    <ServerBtn ref={ref} focused={focused} active={active} onClick={onPress}>
-      {label}{langTag}
-    </ServerBtn>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
@@ -252,65 +209,123 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
   const [currentSource, setCurrentSource] = useState<'db' | 'extra'>('db');
   const [loading, setLoading] = useState(true);
   const [controlsVisible, setControlsVisible] = useState(true);
+  // Which button is highlighted by keyboard navigation
+  const [focusedBtn, setFocusedBtn] = useState<{ source: 'back' | 'db' | 'extra'; index: number }>({ source: 'back', index: 0 });
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { focusKey: containerFocusKey } = useFocusable<object, HTMLDivElement>({
-    focusKey: 'PLAYER_CONTAINER',
-    trackChildren: true,
-    isFocusBoundary: true,
-  });
+  const allEmbeds = [
+    ...dbEmbeds.map((e, i) => ({ ...e, source: 'db' as const, index: i })),
+    ...extraEmbeds.map((e, i) => ({ ...e, source: 'extra' as const, index: i })),
+  ];
 
-  // ── Auto-hide logic ──────────────────────────────────────────────────────
+  // ── Auto-hide ──────────────────────────────────────────────────────────────
 
   const showControls = useCallback(() => {
     setControlsVisible(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => {
-      setControlsVisible(false);
-    }, HIDE_DELAY);
+    hideTimerRef.current = setTimeout(() => setControlsVisible(false), HIDE_DELAY);
   }, []);
 
-  // Start hide timer once loaded
   useEffect(() => {
-    if (!loading) {
-      showControls();
-    }
-    return () => {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    };
+    if (!loading) showControls();
+    return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); };
   }, [loading, showControls]);
 
-  // Any key press or mouse move shows controls again
+  // ── Keyboard navigation ────────────────────────────────────────────────────
+
   useEffect(() => {
-    const handleActivity = (e: KeyboardEvent | MouseEvent) => {
-      // Escape/Back closes the player
-      if (e instanceof KeyboardEvent) {
-        if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009) {
-          e.preventDefault();
-          onClose();
-          return;
-        }
+    const handleKey = (e: KeyboardEvent) => {
+      const key = e.key || e.keyCode;
+
+      // Back / Escape — close player
+      if (key === 'Escape' || key === 'Backspace' || e.keyCode === 10009) {
+        e.preventDefault();
+        onClose();
+        return;
       }
+
+      // If controls are hidden, any key shows them
+      if (!controlsVisible) {
+        e.preventDefault();
+        showControls();
+        setFocusedBtn({ source: 'back', index: 0 });
+        return;
+      }
+
+      // Reset hide timer on any activity
       showControls();
+
+      // Navigation within controls
+      if (key === 'ArrowRight' || e.keyCode === 39) {
+        e.preventDefault();
+        navigateButtons('right');
+      } else if (key === 'ArrowLeft' || e.keyCode === 37) {
+        e.preventDefault();
+        navigateButtons('left');
+      } else if (key === 'ArrowDown' || e.keyCode === 40) {
+        e.preventDefault();
+        navigateButtons('down');
+      } else if (key === 'ArrowUp' || e.keyCode === 38) {
+        e.preventDefault();
+        navigateButtons('up');
+      } else if (key === 'Enter' || e.keyCode === 13) {
+        e.preventDefault();
+        activateFocusedBtn();
+      }
     };
 
-    window.addEventListener('keydown', handleActivity);
-    window.addEventListener('mousemove', handleActivity);
-    return () => {
-      window.removeEventListener('keydown', handleActivity);
-      window.removeEventListener('mousemove', handleActivity);
-    };
-  }, [onClose, showControls]);
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [controlsVisible, focusedBtn, dbEmbeds, extraEmbeds, onClose, showControls]);
 
-  // ── Load embeds ──────────────────────────────────────────────────────────
+  const navigateButtons = useCallback((dir: 'left' | 'right' | 'up' | 'down') => {
+    const sections = [
+      { source: 'back' as const, count: 1 },
+      ...(dbEmbeds.length > 0 ? [{ source: 'db' as const, count: dbEmbeds.length }] : []),
+      { source: 'extra' as const, count: extraEmbeds.length },
+    ];
+
+    const sectionIdx = sections.findIndex(s => s.source === focusedBtn.source);
+
+    if (dir === 'right') {
+      const section = sections[sectionIdx];
+      if (focusedBtn.index < section.count - 1) {
+        setFocusedBtn(prev => ({ ...prev, index: prev.index + 1 }));
+      } else if (sectionIdx < sections.length - 1) {
+        setFocusedBtn({ source: sections[sectionIdx + 1].source, index: 0 });
+      }
+    } else if (dir === 'left') {
+      if (focusedBtn.index > 0) {
+        setFocusedBtn(prev => ({ ...prev, index: prev.index - 1 }));
+      } else if (sectionIdx > 0) {
+        const prev = sections[sectionIdx - 1];
+        setFocusedBtn({ source: prev.source, index: prev.count - 1 });
+      }
+    } else if (dir === 'down') {
+      if (sectionIdx < sections.length - 1) {
+        setFocusedBtn({ source: sections[sectionIdx + 1].source, index: 0 });
+      }
+    } else if (dir === 'up') {
+      if (sectionIdx > 0) {
+        setFocusedBtn({ source: sections[sectionIdx - 1].source, index: 0 });
+      }
+    }
+  }, [focusedBtn, dbEmbeds.length, extraEmbeds.length]);
+
+  const activateFocusedBtn = useCallback(() => {
+    if (focusedBtn.source === 'back') {
+      onClose();
+    } else {
+      setCurrentSource(focusedBtn.source);
+      setCurrentIndex(focusedBtn.index);
+    }
+  }, [focusedBtn, onClose]);
+
+  // ── Load embeds ────────────────────────────────────────────────────────────
 
   useEffect(() => {
     setLoading(true);
-    supabase
-      .from('movies')
-      .select('embeds')
-      .eq('slug', slug)
-      .single()
+    supabase.from('movies').select('embeds').eq('slug', slug).single()
       .then(({ data }) => {
         const embeds: Embed[] = data?.embeds ?? [];
         setDbEmbeds(embeds);
@@ -318,6 +333,7 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
         setExtraEmbeds(tmdbId ? buildFallbackEmbeds(tmdbId) : buildSlugFallbackEmbeds(slug));
         setCurrentSource(embeds.length > 0 ? 'db' : 'extra');
         setCurrentIndex(0);
+        setFocusedBtn({ source: 'back', index: 0 });
         setLoading(false);
       });
   }, [slug]);
@@ -326,73 +342,78 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
   const allEmpty = !loading && dbEmbeds.length === 0 && extraEmbeds.length === 0;
 
   return (
-    <FocusContext.Provider value={containerFocusKey}>
-      <Overlay>
-        {loading ? (
-          <StatusText>Cargando reproductor...</StatusText>
-        ) : allEmpty ? (
-          <StatusText>No hay servidores disponibles para esta película</StatusText>
-        ) : (
-          <IframeWrapper>
-            <StyledIframe
-              key={`${currentSource}-${currentIndex}`}
-              src={currentEmbed?.url}
-              allowFullScreen
-              allow="autoplay; fullscreen; encrypted-media"
-            />
-          </IframeWrapper>
-        )}
+    <Overlay>
+      {loading ? (
+        <StatusText>Cargando reproductor...</StatusText>
+      ) : allEmpty ? (
+        <StatusText>No hay servidores disponibles</StatusText>
+      ) : (
+        <IframeWrapper>
+          <StyledIframe
+            key={`${currentSource}-${currentIndex}`}
+            src={currentEmbed?.url}
+            allowFullScreen
+            allow="autoplay; fullscreen; encrypted-media"
+          />
+        </IframeWrapper>
+      )}
 
-        {/* Controls overlay — auto-hides after 4s, shows on any activity */}
-        {!loading && !allEmpty && (
-          <Controls visible={controlsVisible}>
-            <TopBar>
-              <BackButton onPress={onClose} />
-              <MovieTitle>{title}</MovieTitle>
-            </TopBar>
+      {!loading && !allEmpty && (
+        <Controls visible={controlsVisible}>
+          <TopBar>
+            <BackBtn
+              active={focusedBtn.source === 'back'}
+              onClick={onClose}
+            >
+              &#8592; Volver
+            </BackBtn>
+            <MovieTitle>{title}</MovieTitle>
+          </TopBar>
 
-            <BottomBar>
-              {dbEmbeds.length > 0 && (
-                <ServerSection>
-                  <SectionLabel>Servidores</SectionLabel>
-                  <ButtonRow>
-                    {dbEmbeds.map((embed, i) => (
-                      <ServerButton
-                        key={`db-${i}`}
-                        embed={embed}
-                        index={i}
-                        active={currentSource === 'db' && currentIndex === i}
-                        focusKey={`DB_SERVER_${i}`}
-                        onPress={() => { setCurrentSource('db'); setCurrentIndex(i); }}
-                      />
-                    ))}
-                  </ButtonRow>
-                </ServerSection>
-              )}
-
+          <BottomBar>
+            {dbEmbeds.length > 0 && (
               <ServerSection>
-                <SectionLabel>Servidores alternativos</SectionLabel>
+                <SectionLabel>Servidores</SectionLabel>
                 <ButtonRow>
-                  {extraEmbeds.map((embed, i) => (
-                    <ServerButton
-                      key={`extra-${i}`}
-                      embed={embed}
-                      index={i}
-                      active={currentSource === 'extra' && currentIndex === i}
-                      focusKey={`EXTRA_SERVER_${i}`}
-                      onPress={() => { setCurrentSource('extra'); setCurrentIndex(i); }}
-                    />
+                  {dbEmbeds.map((embed, i) => (
+                    <ServerBtn
+                      key={`db-${i}`}
+                      active={currentSource === 'db' && currentIndex === i}
+                      highlighted={focusedBtn.source === 'db' && focusedBtn.index === i}
+                      onClick={() => { setCurrentSource('db'); setCurrentIndex(i); }}
+                    >
+                      {embed.server || embed.lang || `Servidor ${i + 1}`}
+                    </ServerBtn>
                   ))}
                 </ButtonRow>
               </ServerSection>
-            </BottomBar>
+            )}
 
-            {/* Hint shown while controls are visible */}
-            <HintText>Presiona cualquier tecla para mostrar controles</HintText>
-          </Controls>
-        )}
-      </Overlay>
-    </FocusContext.Provider>
+            <ServerSection>
+              <SectionLabel>Servidores alternativos</SectionLabel>
+              <ButtonRow>
+                {extraEmbeds.map((embed, i) => (
+                  <ServerBtn
+                    key={`extra-${i}`}
+                    active={currentSource === 'extra' && currentIndex === i}
+                    highlighted={focusedBtn.source === 'extra' && focusedBtn.index === i}
+                    onClick={() => { setCurrentSource('extra'); setCurrentIndex(i); }}
+                  >
+                    {embed.server || embed.lang || `Servidor ${i + 1}`}
+                  </ServerBtn>
+                ))}
+              </ButtonRow>
+            </ServerSection>
+          </BottomBar>
+
+          <HintText>
+            {controlsVisible
+              ? '← → navegar servidores · Enter seleccionar · Atrás cerrar'
+              : 'Presiona cualquier tecla para mostrar controles'}
+          </HintText>
+        </Controls>
+      )}
+    </Overlay>
   );
 }
 
