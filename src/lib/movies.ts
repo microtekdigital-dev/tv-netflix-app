@@ -14,12 +14,15 @@ interface DbMovie {
 }
 
 function dbMovieToAsset(m: DbMovie): Asset {
+  // Use backdrop for card thumbnails (16:9 ratio matches card shape)
+  // Fall back to poster, then placeholder
+  const thumbnail = m.backdrop ?? m.poster ?? `https://picsum.photos/seed/${m.slug}/320/180`;
   return {
     id: m.slug,
     title: m.title,
     description: '',
     imageUrl: m.backdrop ?? m.poster ?? `https://picsum.photos/seed/${m.slug}/1920/1080`,
-    thumbnailUrl: m.poster ?? `https://picsum.photos/seed/${m.slug}/300/170`,
+    thumbnailUrl: thumbnail,
     year: m.year ? parseInt(m.year, 10) : undefined,
     genre: m.genre?.[0] ?? undefined,
     rating: m.rating ? String(m.rating) : undefined,
