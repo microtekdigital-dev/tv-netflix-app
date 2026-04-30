@@ -361,6 +361,7 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
 
       {/* Overlay mousemove handles show controls - no blocking div needed */}
 
+      <div style={{position:"absolute",top:"20px",left:"40px",zIndex:10}} onClick={onClose}><button style={{backgroundColor:"rgba(0,0,0,0.7)",color:"#fff",border:"2px solid rgba(255,255,255,0.6)",borderRadius:"4px",padding:"10px 24px",fontSize:"18px",fontFamily:"Segoe UI,Arial,sans-serif",cursor:"pointer"}}>&#8592; Volver</button></div>
       {!loading && !allEmpty && (
         <Controls visible={controlsVisible}>
           <TopBar>
