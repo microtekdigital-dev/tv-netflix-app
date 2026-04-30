@@ -13,6 +13,11 @@ module.exports = {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       diagnostics: false,
+      tsconfig: {
+        jsx: 'react-jsx',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+      }
     }],
     '^.+\\.js$': ['ts-jest', {
       diagnostics: false,
