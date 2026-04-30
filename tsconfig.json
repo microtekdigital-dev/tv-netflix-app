@@ -16,7 +16,13 @@
     "noUnusedParameters": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "baseUrl": ".",
+    "paths": {
+      "@noriginmedia/norigin-spatial-navigation": ["src/vendor/norigin-spatial-navigation/index.ts"],
+      "@noriginmedia/norigin-spatial-navigation-core": ["src/vendor/norigin-spatial-navigation-core/index.ts"],
+      "@noriginmedia/norigin-spatial-navigation-react": ["src/vendor/norigin-spatial-navigation-react/index.ts"]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
