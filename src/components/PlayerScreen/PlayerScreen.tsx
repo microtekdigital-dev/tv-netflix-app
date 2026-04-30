@@ -358,7 +358,7 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
         </IframeWrapper>
       )}
 
-      <div onMouseMove={showControls} onClick={showControls} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",zIndex:2,pointerEvents:controlsVisible?"none":"all"}} />
+      {/* Overlay mousemove handles show controls - no blocking div needed */}
 
       {!loading && !allEmpty && (
         <Controls visible={controlsVisible}>
@@ -420,5 +420,6 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
 }
 
 export default PlayerScreen;
+
 
 
