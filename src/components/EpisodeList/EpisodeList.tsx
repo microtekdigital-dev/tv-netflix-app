@@ -16,6 +16,7 @@ interface EpisodeListProps {
   tmdbId?: number;
   totalSeasons: number;
   seriesTitle: string;
+  backdropUrl?: string;
   onSelectEpisode: (season: number, episode: number) => void;
   onClose: () => void;
 }
@@ -25,14 +26,30 @@ const TMDB_IMG = 'https://image.tmdb.org/t/p/w300';
 
 // ── Styled ────────────────────────────────────────────────────────────────────
 
-const Overlay = styled.div`
+const Overlay = styled.div<{ bg?: string }>`
   position: fixed; top: 0; left: 0;
   width: 1920px; height: 1080px;
-  background-color: rgba(0,0,0,0.92);
   z-index: 200;
   display: flex; flex-direction: column;
   padding: 48px 80px;
   overflow: hidden;
+  ${({ bg }) => bg ? `
+    background-image: url(${bg});
+    background-size: cover;
+    background-position: center;
+  ` : 'background: rgba(0,0,0,0.92);'}
+  &::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.80);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+`;
+
+const OverlayContent = styled.div`
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; height: 100%;
 `;
 
 const Header = styled.div`
@@ -144,7 +161,7 @@ function EpCard({ ep, season, onSelect }: { ep: Episode; season: number; onSelec
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, onSelectEpisode, onClose }: EpisodeListProps) {
+function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, backdropUrl, onSelectEpisode, onClose }: EpisodeListProps) {
   const [season, setSeason] = useState(1);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,36 +236,38 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, onSe
 
   return (
     <FocusContext.Provider value={focusKey}>
-      <Overlay ref={containerRef}>
-        <Header>
-          <BackBtn ref={backRef} focused={backFocused} onClick={onClose}>
-            &#8592; Volver
-          </BackBtn>
-          <Title>{seriesTitle} — Episodios</Title>
-        </Header>
+      <Overlay ref={containerRef} bg={backdropUrl}>
+        <OverlayContent>
+          <Header>
+            <BackBtn ref={backRef} focused={backFocused} onClick={onClose}>
+              &#8592; Volver
+            </BackBtn>
+            <Title>{seriesTitle} — Episodios</Title>
+          </Header>
 
-        <SeasonTabs ref={seasonTabsRef}>
-          {Array.from({ length: totalSeasons }, (_, i) => i + 1).map(s => (
-            <SeasonTab key={s} active={season === s} focused={false}
-              onClick={() => setSeason(s)}>
-              Temporada {s}
-            </SeasonTab>
-          ))}
-        </SeasonTabs>
+          <SeasonTabs ref={seasonTabsRef}>
+            {Array.from({ length: totalSeasons }, (_, i) => i + 1).map(s => (
+              <SeasonTab key={s} active={season === s} focused={false}
+                onClick={() => setSeason(s)}>
+                Temporada {s}
+              </SeasonTab>
+            ))}
+          </SeasonTabs>
 
-        <EpisodeScroll ref={scrollRef}>
-          {loading ? (
-            <LoadingText>Cargando episodios...</LoadingText>
-          ) : !resolvedTmdbId ? (
-            <LoadingText>Esta serie no tiene datos de episodios disponibles</LoadingText>
-          ) : episodes.length === 0 ? (
-            <LoadingText>No hay episodios disponibles</LoadingText>
-          ) : (
-            episodes.map(ep => (
-              <EpCard key={ep.episode_number} ep={ep} season={season} onSelect={handleSelect} />
-            ))
-          )}
-        </EpisodeScroll>
+          <EpisodeScroll ref={scrollRef}>
+            {loading ? (
+              <LoadingText>Cargando episodios...</LoadingText>
+            ) : !resolvedTmdbId ? (
+              <LoadingText>Esta serie no tiene datos de episodios disponibles</LoadingText>
+            ) : episodes.length === 0 ? (
+              <LoadingText>No hay episodios disponibles</LoadingText>
+            ) : (
+              episodes.map(ep => (
+                <EpCard key={ep.episode_number} ep={ep} season={season} onSelect={handleSelect} />
+              ))
+            )}
+          </EpisodeScroll>
+        </OverlayContent>
       </Overlay>
     </FocusContext.Provider>
   );

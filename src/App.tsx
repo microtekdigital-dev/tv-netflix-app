@@ -180,6 +180,7 @@ function App() {
           isSeries={!!serverSelectAsset.isSeries}
           season={serverSelectSeason}
           episode={serverSelectEpisode}
+          backdropUrl={serverSelectAsset.imageUrl}
           onSelectServer={onSelectServer}
           onClose={() => setServerSelectAsset(null)}
         />
@@ -190,6 +191,7 @@ function App() {
           tmdbId={episodeListAsset.tmdbId}
           totalSeasons={episodeListAsset.totalSeasons ?? 1}
           seriesTitle={episodeListAsset.title}
+          backdropUrl={episodeListAsset.imageUrl}
           onSelectEpisode={(s, e) => onSelectEpisode(episodeListAsset, s, e)}
           onClose={() => setEpisodeListAsset(null)}
         />

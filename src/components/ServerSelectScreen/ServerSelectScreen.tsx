@@ -16,6 +16,7 @@ interface ServerSelectScreenProps {
   isSeries?: boolean;
   season?: number;
   episode?: number;
+  backdropUrl?: string;
   onSelectServer: (url: string, serverName: string) => void;
   onClose: () => void;
 }
@@ -56,13 +57,29 @@ function extractTmdbId(embeds: Embed[]): string | null {
 
 // ── Styled ────────────────────────────────────────────────────────────────────
 
-const Overlay = styled.div`
+const Overlay = styled.div<{ bg?: string }>`
   position: fixed; top: 0; left: 0;
   width: 1920px; height: 1080px;
-  background: rgba(0,0,0,0.95);
   z-index: 200;
   display: flex; flex-direction: column;
   padding: 60px 100px;
+  ${({ bg }) => bg ? `
+    background-image: url(${bg});
+    background-size: cover;
+    background-position: center;
+  ` : 'background: rgba(0,0,0,0.95);'}
+  &::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.78);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+`;
+
+const Content = styled.div`
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; height: 100%;
 `;
 
 const Header = styled.div`
@@ -140,7 +157,7 @@ function ServerCardItem({ embed, index, onSelect }: {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-function ServerSelectScreen({ slug, title, isSeries, season = 1, episode = 1, onSelectServer, onClose }: ServerSelectScreenProps) {
+function ServerSelectScreen({ slug, title, isSeries, season = 1, episode = 1, backdropUrl, onSelectServer, onClose }: ServerSelectScreenProps) {
   const [dbEmbeds, setDbEmbeds] = useState<Embed[]>([]);
   const [fallbackEmbeds, setFallbackEmbeds] = useState<Embed[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,35 +206,37 @@ function ServerSelectScreen({ slug, title, isSeries, season = 1, episode = 1, on
 
   return (
     <FocusContext.Provider value={focusKey}>
-      <Overlay ref={containerRef}>
-        <Header>
-          <BackBtn ref={backRef} focused={backFocused} onClick={onClose}>&#8592; Volver</BackBtn>
-          <Title>{title}</Title>
-        </Header>
-        {subtitleText && <Subtitle>{subtitleText}</Subtitle>}
+      <Overlay ref={containerRef} bg={backdropUrl}>
+        <Content>
+          <Header>
+            <BackBtn ref={backRef} focused={backFocused} onClick={onClose}>&#8592; Volver</BackBtn>
+            <Title>{title}</Title>
+          </Header>
+          {subtitleText && <Subtitle>{subtitleText}</Subtitle>}
 
-        {loading ? (
-          <LoadingText>Cargando servidores...</LoadingText>
-        ) : (
-          <>
-            {dbEmbeds.length > 0 && (
-              <>
-                <SectionLabel>Servidores</SectionLabel>
-                <ServerGrid style={{ marginBottom: '40px' }}>
-                  {dbEmbeds.map((e, i) => (
-                    <ServerCardItem key={`db-${i}`} embed={e} index={i} onSelect={onSelectServer} />
-                  ))}
-                </ServerGrid>
-              </>
-            )}
-            <SectionLabel>Servidores alternativos</SectionLabel>
-            <ServerGrid>
-              {fallbackEmbeds.map((e, i) => (
-                <ServerCardItem key={`fb-${i}`} embed={e} index={i + dbEmbeds.length} onSelect={onSelectServer} />
-              ))}
-            </ServerGrid>
-          </>
-        )}
+          {loading ? (
+            <LoadingText>Cargando servidores...</LoadingText>
+          ) : (
+            <>
+              {dbEmbeds.length > 0 && (
+                <>
+                  <SectionLabel>Servidores</SectionLabel>
+                  <ServerGrid style={{ marginBottom: '40px' }}>
+                    {dbEmbeds.map((e, i) => (
+                      <ServerCardItem key={`db-${i}`} embed={e} index={i} onSelect={onSelectServer} />
+                    ))}
+                  </ServerGrid>
+                </>
+              )}
+              <SectionLabel>Servidores alternativos</SectionLabel>
+              <ServerGrid>
+                {fallbackEmbeds.map((e, i) => (
+                  <ServerCardItem key={`fb-${i}`} embed={e} index={i + dbEmbeds.length} onSelect={onSelectServer} />
+                ))}
+              </ServerGrid>
+            </>
+          )}
+        </Content>
       </Overlay>
     </FocusContext.Provider>
   );
