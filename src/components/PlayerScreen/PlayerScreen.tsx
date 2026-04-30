@@ -339,11 +339,9 @@ function PlayerScreen({ slug, title, isSeries = false, onClose }: PlayerScreenPr
   // ── Recalculate series embeds when season/episode changes ──────────────────
   useEffect(() => {
     if (!isSeries || !seriesTmdbId) return;
-    // Only show fallback servers when there are no DB embeds
-    if (dbEmbeds.length === 0) {
-      const newFallbacks = buildSeriesFallbackEmbeds(seriesTmdbId, season, episode);
-      setExtraEmbeds(newFallbacks);
-    }
+    // Always recalculate series fallbacks with new season/episode
+    const newFallbacks = buildSeriesFallbackEmbeds(seriesTmdbId, season, episode);
+    setExtraEmbeds(newFallbacks);
     setCurrentSource(dbEmbeds.length > 0 ? 'db' : 'extra');
     setCurrentIndex(0);
   }, [season, episode, seriesTmdbId, isSeries]);
@@ -361,9 +359,12 @@ function PlayerScreen({ slug, title, isSeries = false, onClose }: PlayerScreenPr
         if (isSeries && data?.seasons) setTotalSeasons(data.seasons);
         if (tid) setSeriesTmdbId(tid);
         setDbEmbeds(embeds);
-        // Only show fallback servers when there are no DB embeds
-        if (embeds.length === 0) {
-          const allFallbacks = isSeries && tid ? buildSeriesFallbackEmbeds(tid, season, episode) : (tid ? buildFallbackEmbeds(tid) : buildSlugFallbackEmbeds(slug));
+        // For series: always show fallback servers with season/episode params
+        // For movies: only show fallbacks when no DB embeds
+        if (isSeries && tid) {
+          setExtraEmbeds(buildSeriesFallbackEmbeds(tid, season, episode));
+        } else if (embeds.length === 0) {
+          const allFallbacks = tid ? buildFallbackEmbeds(tid) : buildSlugFallbackEmbeds(slug);
           setExtraEmbeds(allFallbacks);
         } else {
           setExtraEmbeds([]);
