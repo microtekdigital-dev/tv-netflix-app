@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 
@@ -340,7 +340,7 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
   const allEmpty = !loading && dbEmbeds.length === 0 && extraEmbeds.length === 0;
 
   return (
-    <Overlay>
+    <Overlay onMouseMove={showControls}>
       {loading ? (
         <StatusText>Cargando reproductor...</StatusText>
       ) : allEmpty ? (
@@ -356,6 +356,8 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
           />
         </IframeWrapper>
       )}
+
+      <div onMouseMove={showControls} onClick={showControls} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",zIndex:2,pointerEvents:controlsVisible?"none":"all"}} />
 
       {!loading && !allEmpty && (
         <Controls visible={controlsVisible}>
@@ -417,3 +419,4 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
 }
 
 export default PlayerScreen;
+
