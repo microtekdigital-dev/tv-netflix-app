@@ -1,4 +1,4 @@
-export interface Asset {
+﻿export interface Asset {
   id: string;
   title: string;
   description: string;
@@ -9,6 +9,8 @@ export interface Asset {
   duration?: string;
   rating?: string;
   isSeries?: boolean;
+  tmdbId?: number;
+  totalSeasons?: number;
 }
 
 export interface ContentCategory {

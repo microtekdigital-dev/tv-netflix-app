@@ -1,12 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import { Asset } from '../../data/content';
 
 interface HeroBannerProps {
-  asset: Asset | null;                // manually selected asset (overrides carousel)
-  featuredMovies?: Asset[];           // carousel pool
+  asset: Asset | null;
+  featuredMovies?: Asset[];
   onPlayPress?: (asset: Asset) => void;
+  onEpisodesPress?: (asset: Asset) => void;
 }
 
 const CAROUSEL_INTERVAL = 6000; // ms between auto-advances
@@ -134,7 +135,22 @@ const PlayButton = styled.button<{ focused: boolean }>`
   transition: transform 0.15s ease;
 `;
 
-// Carousel dots
+const EpisodesButton = styled.button<{ focused: boolean }>`
+  background-color: ${({ focused }) => focused ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)'};
+  color: #fff;
+  border: 2px solid ${({ focused }) => focused ? '#fff' : 'rgba(255,255,255,0.5)'};
+  border-radius: 4px;
+  padding: 12px 32px;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  cursor: pointer;
+  outline: none;
+  -webkit-transform: ${({ focused }) => focused ? 'scale(1.05)' : 'scale(1)'};
+  transform: ${({ focused }) => focused ? 'scale(1.05)' : 'scale(1)'};
+  -webkit-transition: -webkit-transform 0.15s ease;
+  transition: transform 0.15s ease;
+`;
 const DotsRow = styled.div`
   position: absolute;
   bottom: 16px;
@@ -156,7 +172,7 @@ const Dot = styled.div<{ active: boolean }>`
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-function HeroBanner({ asset, featuredMovies = [], onPlayPress }: HeroBannerProps) {
+function HeroBanner({ asset, featuredMovies = [], onPlayPress, onEpisodesPress }: HeroBannerProps) {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -175,6 +191,11 @@ function HeroBanner({ asset, featuredMovies = [], onPlayPress }: HeroBannerProps
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [asset, featuredMovies.length]);
+
+  const { ref: epRef, focused: epFocused } = useFocusable<object, HTMLButtonElement>({
+    onEnterPress: () => { if (displayAsset && onEpisodesPress) onEpisodesPress(displayAsset); },
+    focusKey: 'HERO_EPISODES',
+  });
 
   const { ref, focused } = useFocusable<object, HTMLButtonElement>({
     onEnterPress: () => {
@@ -233,8 +254,17 @@ function HeroBanner({ asset, featuredMovies = [], onPlayPress }: HeroBannerProps
             focused={focused}
             onClick={() => { if (displayAsset && onPlayPress) onPlayPress(displayAsset); }}
           >
-            &#9654; Reproducir
+            &#9654; {displayAsset.isSeries ? 'Ver T1:E1' : 'Reproducir'}
           </PlayButton>
+          {displayAsset.isSeries && onEpisodesPress && (
+            <EpisodesButton
+              ref={epRef}
+              focused={epFocused}
+              onClick={() => onEpisodesPress(displayAsset)}
+            >
+              &#9776; Más episodios
+            </EpisodesButton>
+          )}
         </BannerActions>
       </BannerContent>
 

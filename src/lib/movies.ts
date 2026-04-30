@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+﻿import { supabase } from './supabase';
 import { Asset, ContentCategory } from '../data/content';
 
 const HOME_SELECT = 'slug,title,year,poster,backdrop,rating,genre';
@@ -128,6 +128,8 @@ function dbSerieToAsset(s: DbSerie): Asset {
     genre: s.genre?.[0] ?? undefined,
     rating: s.rating ? String(s.rating) : undefined,
     isSeries: true,
+    tmdbId: s.tmdb_id ?? undefined,
+    totalSeasons: s.seasons ?? 1,
   };
 }
 

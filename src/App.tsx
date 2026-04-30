@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import { FocusableComponentLayout, FocusDetails, KeyPressDetails } from '@noriginmedia/norigin-spatial-navigation';
 import NavMenu from './components/NavMenu/NavMenu';
@@ -6,6 +6,8 @@ import HeroBanner from './components/HeroBanner/HeroBanner';
 import ContentRow from './components/ContentRow/ContentRow';
 import SearchScreen from './components/SearchScreen/SearchScreen';
 import PlayerScreen from './components/PlayerScreen/PlayerScreen';
+import EpisodeList from './components/EpisodeList/EpisodeList';
+import ServerSelectScreen from './components/ServerSelectScreen/ServerSelectScreen';
 import { Asset, CATEGORIES, ContentCategory } from './data/content';
 import { tvScrollTo } from './keymap';
 import { fetchHomeCategories, fetchSeriesCategories } from './lib/movies';
@@ -85,7 +87,12 @@ function App() {
   const [seriesCategories, setSeriesCategories] = useState<ContentCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [seriesLoading, setSeriesLoading] = useState(false);
-  const [playingAsset, setPlayingAsset] = useState<Asset | null>(null);
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [playingTitle, setPlayingTitle] = useState('');
+  const [serverSelectAsset, setServerSelectAsset] = useState<Asset | null>(null);
+  const [serverSelectSeason, setServerSelectSeason] = useState(1);
+  const [serverSelectEpisode, setServerSelectEpisode] = useState(1);
+  const [episodeListAsset, setEpisodeListAsset] = useState<Asset | null>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
 
   // Load real data from Supabase on mount
@@ -118,10 +125,26 @@ function App() {
   }, [seriesCategories.length]);
 
   const onPlayPress = useCallback((asset: Asset) => {
-    setPlayingAsset(asset);
+    setServerSelectSeason(1);
+    setServerSelectEpisode(1);
+    setServerSelectAsset(asset);
   }, []);
   const onClosePlayer = useCallback(() => {
-    setPlayingAsset(null);
+    setPlayingUrl(null);
+  }, []);
+  const onEpisodesPress = useCallback((asset: Asset) => {
+    setEpisodeListAsset(asset);
+  }, []);
+  const onSelectEpisode = useCallback((asset: Asset, season: number, episode: number) => {
+    setEpisodeListAsset(null);
+    setServerSelectSeason(season);
+    setServerSelectEpisode(episode);
+    setServerSelectAsset(asset);
+  }, []);
+  const onSelectServer = useCallback((url: string, serverName: string) => {
+    setServerSelectAsset(null);
+    setPlayingTitle(serverName);
+    setPlayingUrl(url);
   }, []);
   const onRowFocus = useCallback(
     (layout: FocusableComponentLayout, _props: object, _details: FocusDetails) => {
@@ -143,12 +166,31 @@ function App() {
   return (
     <AppContainer>
       <GlobalStyle />
-      {playingAsset && (
+      {playingUrl && (
         <PlayerScreen
-          slug={playingAsset.id}
-          title={playingAsset.title}
-          isSeries={!!playingAsset.isSeries}
+          url={playingUrl}
+          title={playingTitle}
           onClose={onClosePlayer}
+        />
+      )}
+      {serverSelectAsset && (
+        <ServerSelectScreen
+          slug={serverSelectAsset.id}
+          title={serverSelectAsset.title}
+          isSeries={!!serverSelectAsset.isSeries}
+          season={serverSelectSeason}
+          episode={serverSelectEpisode}
+          onSelectServer={onSelectServer}
+          onClose={() => setServerSelectAsset(null)}
+        />
+      )}
+      {episodeListAsset && episodeListAsset.tmdbId && (
+        <EpisodeList
+          tmdbId={episodeListAsset.tmdbId}
+          totalSeasons={episodeListAsset.totalSeasons ?? 1}
+          seriesTitle={episodeListAsset.title}
+          onSelectEpisode={(s, e) => onSelectEpisode(episodeListAsset, s, e)}
+          onClose={() => setEpisodeListAsset(null)}
         />
       )}
       <NavMenu focusKey="MENU" onItemSelect={handleMenuSelect} />
@@ -162,7 +204,7 @@ function App() {
           />
         ) : (
           <>
-            <HeroBanner asset={selectedAsset} featuredMovies={featuredMovies} onPlayPress={onPlayPress} />
+            <HeroBanner asset={selectedAsset} featuredMovies={featuredMovies} onPlayPress={onPlayPress} onEpisodesPress={onEpisodesPress} />
             <ScrollingRows ref={rowsRef}>
               {activeCategories.map((category) => (
                 <ContentRow
