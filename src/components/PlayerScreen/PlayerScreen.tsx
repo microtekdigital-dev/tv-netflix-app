@@ -343,8 +343,6 @@ function PlayerScreen({ slug, title, isSeries = false, onClose }: PlayerScreenPr
     // Always recalculate series fallbacks with new season/episode
     const newFallbacks = buildSeriesFallbackEmbeds(seriesTmdbId, season, episode);
     setExtraEmbeds(newFallbacks);
-    setCurrentSource(dbEmbeds.length > 0 ? 'db' : 'extra');
-    setCurrentIndex(0);
   }, [season, episode, seriesTmdbId, isSeries]);
 
   // ── Load embeds ────────────────────────────────────────────────────────────
