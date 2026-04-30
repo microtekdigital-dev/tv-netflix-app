@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import styled from 'styled-components';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import styled, { keyframes } from 'styled-components';
 import { useFocusable, FocusContext } from '@noriginmedia/norigin-spatial-navigation';
 import { supabase } from '../../lib/supabase';
 
@@ -16,6 +16,18 @@ interface PlayerScreenProps {
   onClose: () => void;
 }
 
+// ── Animations ────────────────────────────────────────────────────────────────
+
+const fadeIn = keyframes`
+  from { opacity: 0; -webkit-transform: translateY(10px); transform: translateY(10px); }
+  to   { opacity: 1; -webkit-transform: translateY(0);    transform: translateY(0); }
+`;
+
+const fadeOut = keyframes`
+  from { opacity: 1; }
+  to   { opacity: 0; }
+`;
+
 // ── Styled components ─────────────────────────────────────────────────────────
 
 const Overlay = styled.div`
@@ -26,27 +38,50 @@ const Overlay = styled.div`
   height: 1080px;
   background-color: #000;
   z-index: 100;
-  display: -webkit-box;
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
+`;
+
+const IframeWrapper = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+`;
+
+const StyledIframe = styled.iframe`
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+`;
+
+const Controls = styled.div<{ visible: boolean }>`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: ${({ visible }) => visible ? 'all' : 'none'};
+  opacity: ${({ visible }) => visible ? 1 : 0};
+  -webkit-animation: ${({ visible }) => visible ? fadeIn : fadeOut} 0.3s ease forwards;
+  animation: ${({ visible }) => visible ? fadeIn : fadeOut} 0.3s ease forwards;
+  -webkit-transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease;
 `;
 
 const TopBar = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
   -webkit-align-items: center;
   align-items: center;
-  padding: 20px 40px;
-  background: -webkit-linear-gradient(top, rgba(0,0,0,0.95), transparent);
-  background: linear-gradient(to bottom, rgba(0,0,0,0.95), transparent);
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
+  padding: 24px 40px;
+  background: -webkit-linear-gradient(top, rgba(0,0,0,0.9), transparent);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
 `;
 
 const BackBtn = styled.button<{ focused: boolean }>`
@@ -75,30 +110,14 @@ const MovieTitle = styled.h2`
   max-width: 1400px;
 `;
 
-const IframeWrapper = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-`;
-
-const StyledIframe = styled.iframe`
-  width: 100%;
-  height: 100%;
-  border: none;
-  display: block;
-`;
-
 const BottomBar = styled.div`
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   padding: 24px 40px;
-  background: -webkit-linear-gradient(bottom, rgba(0,0,0,0.95), transparent);
-  background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
-  z-index: 10;
+  background: -webkit-linear-gradient(bottom, rgba(0,0,0,0.9), transparent);
+  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
 `;
 
 const ServerSection = styled.div`
@@ -151,17 +170,25 @@ const StatusText = styled.div`
   text-align: center;
 `;
 
+const HintText = styled.div`
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  -webkit-transform: translateX(-50%);
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.4);
+  font-size: 14px;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  pointer-events: none;
+`;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Extract TMDB ID from any known embed URL pattern */
+const HIDE_DELAY = 4000; // ms before controls auto-hide
+
 function extractTmdbId(embeds: Embed[]): string | null {
   for (const e of embeds) {
-    const patterns = [
-      /\/movie\/(\d+)/,
-      /\/embed\/(\d+)/,
-      /[?&]tmdb=(\d+)/,
-      /\/(\d{4,8})(?:[/?]|$)/,
-    ];
+    const patterns = [/\/movie\/(\d+)/, /\/embed\/(\d+)/, /[?&]tmdb=(\d+)/, /\/(\d{4,8})(?:[/?]|$)/];
     for (const re of patterns) {
       const m = e.url?.match(re);
       if (m) return m[1];
@@ -170,24 +197,22 @@ function extractTmdbId(embeds: Embed[]): string | null {
   return null;
 }
 
-/** Build fallback embed list from TMDB ID */
 function buildFallbackEmbeds(tmdbId: string): Embed[] {
   return [
-    { url: `https://vidsrc.to/embed/movie/${tmdbId}`,        server: 'VidSrc',    lang: 'Multi',  quality: 'HD' },
-    { url: `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`,   server: 'VidSrc.me', lang: 'Multi',  quality: 'HD' },
-    { url: `https://vidlink.pro/movie/${tmdbId}`,             server: 'VidLink',   lang: 'Multi',  quality: 'HD' },
-    { url: `https://www.2embed.cc/embed/${tmdbId}`,           server: '2Embed',    lang: 'Multi',  quality: 'HD' },
+    { url: `https://vidsrc.to/embed/movie/${tmdbId}`,          server: 'VidSrc',     lang: 'Multi', quality: 'HD' },
+    { url: `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`,     server: 'VidSrc.me',  lang: 'Multi', quality: 'HD' },
+    { url: `https://vidlink.pro/movie/${tmdbId}`,               server: 'VidLink',    lang: 'Multi', quality: 'HD' },
+    { url: `https://www.2embed.cc/embed/${tmdbId}`,             server: '2Embed',     lang: 'Multi', quality: 'HD' },
     { url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`, server: 'MultiEmbed', lang: 'Multi', quality: 'HD' },
-    { url: `https://embed.su/embed/movie/${tmdbId}`,          server: 'Embed.su',  lang: 'Multi',  quality: 'HD' },
+    { url: `https://embed.su/embed/movie/${tmdbId}`,            server: 'Embed.su',   lang: 'Multi', quality: 'HD' },
   ];
 }
 
-/** Build fallback embeds using slug (when no TMDB ID is available) */
 function buildSlugFallbackEmbeds(slug: string): Embed[] {
   return [
-    { url: `https://vidsrc.to/embed/movie/${slug}`,           server: 'VidSrc',    lang: 'Multi',  quality: 'HD' },
-    { url: `https://vidlink.pro/movie/${slug}`,                server: 'VidLink',   lang: 'Multi',  quality: 'HD' },
-    { url: `https://www.2embed.cc/embed/${slug}`,              server: '2Embed',    lang: 'Multi',  quality: 'HD' },
+    { url: `https://vidsrc.to/embed/movie/${slug}`,  server: 'VidSrc',  lang: 'Multi', quality: 'HD' },
+    { url: `https://vidlink.pro/movie/${slug}`,       server: 'VidLink', lang: 'Multi', quality: 'HD' },
+    { url: `https://www.2embed.cc/embed/${slug}`,     server: '2Embed',  lang: 'Multi', quality: 'HD' },
   ];
 }
 
@@ -205,15 +230,10 @@ function BackButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-function ServerButton({
-  embed, index, active, onPress, focusKey,
-}: {
+function ServerButton({ embed, index, active, onPress, focusKey }: {
   embed: Embed; index: number; active: boolean; onPress: () => void; focusKey: string;
 }) {
-  const { ref, focused } = useFocusable<object, HTMLButtonElement>({
-    onEnterPress: onPress,
-    focusKey,
-  });
+  const { ref, focused } = useFocusable<object, HTMLButtonElement>({ onEnterPress: onPress, focusKey });
   const label = embed.server || embed.lang || `Servidor ${index + 1}`;
   const langTag = embed.lang && embed.lang !== embed.server ? ` · ${embed.lang}` : '';
   return (
@@ -231,12 +251,58 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentSource, setCurrentSource] = useState<'db' | 'extra'>('db');
   const [loading, setLoading] = useState(true);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { focusKey: containerFocusKey } = useFocusable<object, HTMLDivElement>({
     focusKey: 'PLAYER_CONTAINER',
     trackChildren: true,
     isFocusBoundary: true,
   });
+
+  // ── Auto-hide logic ──────────────────────────────────────────────────────
+
+  const showControls = useCallback(() => {
+    setControlsVisible(true);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, HIDE_DELAY);
+  }, []);
+
+  // Start hide timer once loaded
+  useEffect(() => {
+    if (!loading) {
+      showControls();
+    }
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, [loading, showControls]);
+
+  // Any key press or mouse move shows controls again
+  useEffect(() => {
+    const handleActivity = (e: KeyboardEvent | MouseEvent) => {
+      // Escape/Back closes the player
+      if (e instanceof KeyboardEvent) {
+        if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009) {
+          e.preventDefault();
+          onClose();
+          return;
+        }
+      }
+      showControls();
+    };
+
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('mousemove', handleActivity);
+    return () => {
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('mousemove', handleActivity);
+    };
+  }, [onClose, showControls]);
+
+  // ── Load embeds ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     setLoading(true);
@@ -248,42 +314,15 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
       .then(({ data }) => {
         const embeds: Embed[] = data?.embeds ?? [];
         setDbEmbeds(embeds);
-
-        // Always build extra servers from TMDB ID or slug
         const tmdbId = extractTmdbId(embeds);
-        const extras = tmdbId
-          ? buildFallbackEmbeds(tmdbId)
-          : buildSlugFallbackEmbeds(slug);
-        setExtraEmbeds(extras);
-
-        // Auto-select: use DB embeds if available, else switch to extras
-        if (embeds.length > 0) {
-          setCurrentSource('db');
-          setCurrentIndex(0);
-        } else {
-          setCurrentSource('extra');
-          setCurrentIndex(0);
-        }
+        setExtraEmbeds(tmdbId ? buildFallbackEmbeds(tmdbId) : buildSlugFallbackEmbeds(slug));
+        setCurrentSource(embeds.length > 0 ? 'db' : 'extra');
+        setCurrentIndex(0);
         setLoading(false);
       });
   }, [slug]);
 
-  // Close on Escape / Backspace / TV Back button
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009) {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
-  const currentEmbed = currentSource === 'db'
-    ? dbEmbeds[currentIndex]
-    : extraEmbeds[currentIndex];
-
+  const currentEmbed = currentSource === 'db' ? dbEmbeds[currentIndex] : extraEmbeds[currentIndex];
   const allEmpty = !loading && dbEmbeds.length === 0 && extraEmbeds.length === 0;
 
   return (
@@ -304,49 +343,53 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
           </IframeWrapper>
         )}
 
-        {/* Top bar: back + title */}
-        <TopBar>
-          <BackButton onPress={onClose} />
-          <MovieTitle>{title}</MovieTitle>
-        </TopBar>
-
-        {/* Bottom bar: server selector */}
+        {/* Controls overlay — auto-hides after 4s, shows on any activity */}
         {!loading && !allEmpty && (
-          <BottomBar>
-            {dbEmbeds.length > 0 && (
+          <Controls visible={controlsVisible}>
+            <TopBar>
+              <BackButton onPress={onClose} />
+              <MovieTitle>{title}</MovieTitle>
+            </TopBar>
+
+            <BottomBar>
+              {dbEmbeds.length > 0 && (
+                <ServerSection>
+                  <SectionLabel>Servidores</SectionLabel>
+                  <ButtonRow>
+                    {dbEmbeds.map((embed, i) => (
+                      <ServerButton
+                        key={`db-${i}`}
+                        embed={embed}
+                        index={i}
+                        active={currentSource === 'db' && currentIndex === i}
+                        focusKey={`DB_SERVER_${i}`}
+                        onPress={() => { setCurrentSource('db'); setCurrentIndex(i); }}
+                      />
+                    ))}
+                  </ButtonRow>
+                </ServerSection>
+              )}
+
               <ServerSection>
-                <SectionLabel>Servidores de la base de datos</SectionLabel>
+                <SectionLabel>Servidores alternativos</SectionLabel>
                 <ButtonRow>
-                  {dbEmbeds.map((embed, i) => (
+                  {extraEmbeds.map((embed, i) => (
                     <ServerButton
-                      key={`db-${i}`}
+                      key={`extra-${i}`}
                       embed={embed}
                       index={i}
-                      active={currentSource === 'db' && currentIndex === i}
-                      focusKey={`DB_SERVER_${i}`}
-                      onPress={() => { setCurrentSource('db'); setCurrentIndex(i); }}
+                      active={currentSource === 'extra' && currentIndex === i}
+                      focusKey={`EXTRA_SERVER_${i}`}
+                      onPress={() => { setCurrentSource('extra'); setCurrentIndex(i); }}
                     />
                   ))}
                 </ButtonRow>
               </ServerSection>
-            )}
+            </BottomBar>
 
-            <ServerSection>
-              <SectionLabel>Servidores alternativos</SectionLabel>
-              <ButtonRow>
-                {extraEmbeds.map((embed, i) => (
-                  <ServerButton
-                    key={`extra-${i}`}
-                    embed={embed}
-                    index={i}
-                    active={currentSource === 'extra' && currentIndex === i}
-                    focusKey={`EXTRA_SERVER_${i}`}
-                    onPress={() => { setCurrentSource('extra'); setCurrentIndex(i); }}
-                  />
-                ))}
-              </ButtonRow>
-            </ServerSection>
-          </BottomBar>
+            {/* Hint shown while controls are visible */}
+            <HintText>Presiona cualquier tecla para mostrar controles</HintText>
+          </Controls>
         )}
       </Overlay>
     </FocusContext.Provider>
