@@ -354,7 +354,6 @@ function PlayerScreen({ slug, title, onClose }: PlayerScreenProps) {
             src={currentEmbed?.url}
             allowFullScreen
             allow="autoplay; fullscreen; encrypted-media"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-fullscreen allow-popups allow-popups-to-escape-sandbox"
           />
         </IframeWrapper>
       )}
