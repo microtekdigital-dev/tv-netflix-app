@@ -4,7 +4,7 @@ import { FocusableComponentLayout, FocusDetails, KeyPressDetails } from '@norigi
 import ContentRow from '../ContentRow/ContentRow';
 import { Asset, ContentCategory } from '../../data/content';
 import { tvScrollTo } from '../../keymap';
-import { searchMovies } from '../../lib/movies';
+import { searchMovies, searchSeries } from '../../lib/movies';
 
 interface SearchScreenProps {
   categories: ContentCategory[];
@@ -113,8 +113,11 @@ function SearchScreen({ categories, onAssetPress }: SearchScreenProps) {
 
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
-      const results = await searchMovies(val);
-      setSearchResults(results);
+      const [movieResults, serieResults] = await Promise.all([
+        searchMovies(val),
+        searchSeries(val),
+      ]);
+      setSearchResults([...movieResults, ...serieResults]);
       setSearching(false);
     }, 400);
   }, []);

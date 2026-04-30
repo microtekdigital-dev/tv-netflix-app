@@ -8,7 +8,7 @@ import SearchScreen from './components/SearchScreen/SearchScreen';
 import PlayerScreen from './components/PlayerScreen/PlayerScreen';
 import { Asset, CATEGORIES, ContentCategory } from './data/content';
 import { tvScrollTo } from './keymap';
-import { fetchHomeCategories } from './lib/movies';
+import { fetchHomeCategories, fetchSeriesCategories } from './lib/movies';
 
 const GlobalStyle = createGlobalStyle`
   ::-webkit-scrollbar { display: none; }
@@ -82,7 +82,9 @@ function App() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [activeMenuItemId, setActiveMenuItemId] = useState<string>('home');
   const [categories, setCategories] = useState<ContentCategory[]>(CATEGORIES);
+  const [seriesCategories, setSeriesCategories] = useState<ContentCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seriesLoading, setSeriesLoading] = useState(false);
   const [playingAsset, setPlayingAsset] = useState<Asset | null>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
 
@@ -100,9 +102,20 @@ function App() {
 
   const onAssetPress = useCallback((asset: Asset, _details: KeyPressDetails) => {
     setSelectedAsset(asset);
-    // Switch to home view to show the hero banner with selected content
     setActiveMenuItemId('home');
   }, []);
+
+  // Load series when user navigates to series section
+  const handleMenuSelect = useCallback((itemId: string) => {
+    setActiveMenuItemId(itemId);
+    if (itemId === 'series' && seriesCategories.length === 0) {
+      setSeriesLoading(true);
+      fetchSeriesCategories()
+        .then(cats => { if (cats.length > 0) setSeriesCategories(cats); })
+        .catch(() => {})
+        .finally(() => setSeriesLoading(false));
+    }
+  }, [seriesCategories.length]);
 
   const onPlayPress = useCallback((asset: Asset) => {
     setPlayingAsset(asset);
@@ -124,6 +137,9 @@ function App() {
     : [];
 
   const isSearchActive = activeMenuItemId === 'search';
+  const isSeriesActive = activeMenuItemId === 'series';
+  const activeCategories = isSeriesActive ? seriesCategories : categories;
+  const activeLoading = isSeriesActive ? seriesLoading : loading;
 
   return (
     <AppContainer>
@@ -135,20 +151,20 @@ function App() {
           onClose={onClosePlayer}
         />
       )}
-      <NavMenu focusKey="MENU" onItemSelect={setActiveMenuItemId} />
+      <NavMenu focusKey="MENU" onItemSelect={handleMenuSelect} />
       <MainContent>
-        {loading ? (
+        {activeLoading ? (
           <LoadingScreen>Cargando contenido...</LoadingScreen>
         ) : isSearchActive ? (
           <SearchScreen
-            categories={categories}
+            categories={activeCategories}
             onAssetPress={onAssetPress}
           />
         ) : (
           <>
             <HeroBanner asset={selectedAsset} featuredMovies={featuredMovies} onPlayPress={onPlayPress} />
             <ScrollingRows ref={rowsRef}>
-              {categories.map((category) => (
+              {activeCategories.map((category) => (
                 <ContentRow
                   key={category.id}
                   title={category.title}
