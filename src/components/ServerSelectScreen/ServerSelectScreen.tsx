@@ -1,14 +1,9 @@
-﻿import React, { useCallback, useEffect, useState } from 'react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { useFocusable, FocusContext } from '@noriginmedia/norigin-spatial-navigation';
 import { supabase } from '../../lib/supabase';
 
-interface Embed {
-  url: string;
-  lang: string | null;
-  server: string | null;
-  quality: string | null;
-}
+interface Embed { url: string; lang: string | null; server: string | null; quality: string | null; }
 
 interface ServerSelectScreenProps {
   slug: string;
@@ -17,6 +12,11 @@ interface ServerSelectScreenProps {
   season?: number;
   episode?: number;
   backdropUrl?: string;
+  trailerUrl?: string;
+  overview?: string;
+  year?: number;
+  genre?: string;
+  rating?: string;
   onSelectServer: (url: string, serverName: string) => void;
   onClose: () => void;
 }
@@ -47,106 +47,122 @@ function buildServersForSeries(tmdbId: string, season: number, episode: number):
 function extractTmdbId(embeds: Embed[]): string | null {
   for (const e of embeds) {
     const patterns = [/\/movie\/(\d+)/, /\/tv\/(\d+)/, /[?&]tmdb=(\d+)/, /\/(\d{4,8})(?:[/?]|$)/];
-    for (const re of patterns) {
-      const m = e.url?.match(re);
-      if (m) return m[1];
-    }
+    for (const re of patterns) { const m = e.url?.match(re); if (m) return m[1]; }
   }
   return null;
 }
 
+function getYoutubeId(url?: string): string | null {
+  if (!url) return null;
+  const m = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
 // ── Styled ────────────────────────────────────────────────────────────────────
 
-const Overlay = styled.div<{ bg?: string }>`
+const Overlay = styled.div`
   position: fixed; top: 0; left: 0;
   width: 1920px; height: 1080px;
-  z-index: 200;
-  display: flex; flex-direction: column;
-  padding: 60px 100px;
-  ${({ bg }) => bg ? `
-    background-image: url(${bg});
-    background-size: cover;
-    background-position: center;
-  ` : 'background: rgba(0,0,0,0.95);'}
-  &::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.78);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-  }
+  z-index: 200; overflow: hidden;
+  background: #000;
+`;
+
+const TrailerBg = styled.iframe`
+  position: absolute; top: -10%; left: -10%;
+  width: 120%; height: 120%;
+  border: none; pointer-events: none;
+  opacity: 0.35;
+`;
+
+const ImageBg = styled.div<{ src: string }>`
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url(${({ src }) => src});
+  background-size: cover; background-position: center;
+  opacity: 0.4;
+`;
+
+const DarkOverlay = styled.div`
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to right, rgba(0,0,0,0.95) 45%, rgba(0,0,0,0.3) 100%);
 `;
 
 const Content = styled.div`
   position: relative; z-index: 1;
-  display: flex; flex-direction: column; height: 100%;
-`;
-
-const Header = styled.div`
-  display: flex; align-items: center; gap: 32px; margin-bottom: 16px;
+  display: flex; flex-direction: column;
+  height: 100%; padding: 60px 80px;
 `;
 
 const BackBtn = styled.button<{ focused: boolean }>`
   background: ${({ focused }) => focused ? 'rgba(255,255,255,0.2)' : 'transparent'};
   color: #fff; border: 2px solid rgba(255,255,255,0.5);
-  border-radius: 4px; padding: 12px 28px; font-size: 18px;
+  border-radius: 4px; padding: 10px 24px; font-size: 16px;
   font-family: 'Segoe UI', Arial, sans-serif; cursor: pointer;
+  align-self: flex-start; margin-bottom: 32px;
 `;
 
-const Title = styled.h1`
-  color: #fff; font-size: 38px; font-weight: 700;
-  font-family: 'Segoe UI', Arial, sans-serif; margin: 0;
+const BigTitle = styled.h1`
+  color: #fff; font-size: 72px; font-weight: 900;
+  font-family: 'Segoe UI', Arial, sans-serif; margin: 0 0 16px 0;
+  text-shadow: 2px 2px 12px rgba(0,0,0,0.8);
+  max-width: 800px;
 `;
 
-const Subtitle = styled.div`
-  color: #aaa; font-size: 20px;
-  font-family: 'Segoe UI', Arial, sans-serif; margin-bottom: 48px;
+const Meta = styled.div`
+  color: #ccc; font-size: 18px;
+  font-family: 'Segoe UI', Arial, sans-serif; margin-bottom: 16px;
+`;
+
+const Overview = styled.p`
+  color: #ddd; font-size: 18px; line-height: 1.5;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  max-width: 700px; margin: 0 0 40px 0;
+  display: -webkit-box; -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical; overflow: hidden;
+`;
+
+const EpInfo = styled.div`
+  color: #e50914; font-size: 20px; font-weight: 700;
+  font-family: 'Segoe UI', Arial, sans-serif; margin-bottom: 24px;
 `;
 
 const SectionLabel = styled.div`
-  color: #888; font-size: 14px; text-transform: uppercase;
+  color: #888; font-size: 13px; text-transform: uppercase;
   letter-spacing: 2px; font-family: 'Segoe UI', Arial, sans-serif;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 `;
 
 const ServerGrid = styled.div`
-  display: flex; flex-wrap: wrap; gap: 20px;
+  display: flex; flex-wrap: wrap; gap: 16px;
 `;
 
 const ServerCard = styled.button<{ focused: boolean }>`
-  background: ${({ focused }) => focused ? 'rgba(229,9,20,0.3)' : 'rgba(255,255,255,0.06)'};
-  border: ${({ focused }) => focused ? '2px solid #e50914' : '2px solid rgba(255,255,255,0.15)'};
-  border-radius: 12px; padding: 24px 40px;
-  cursor: pointer; min-width: 200px;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: ${({ focused }) => focused ? 'rgba(229,9,20,0.4)' : 'rgba(255,255,255,0.08)'};
+  border: ${({ focused }) => focused ? '2px solid #e50914' : '2px solid rgba(255,255,255,0.2)'};
+  border-radius: 10px; padding: 20px 36px;
+  cursor: pointer; min-width: 180px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
   transition: all 0.15s ease;
 `;
 
 const ServerName = styled.div`
-  color: #fff; font-size: 22px; font-weight: 700;
+  color: #fff; font-size: 20px; font-weight: 700;
   font-family: 'Segoe UI', Arial, sans-serif;
 `;
 
 const ServerLang = styled.div`
-  color: #aaa; font-size: 14px;
+  color: #aaa; font-size: 13px;
   font-family: 'Segoe UI', Arial, sans-serif;
 `;
 
-const LoadingText = styled.div`
-  color: #aaa; font-size: 22px;
-  font-family: 'Segoe UI', Arial, sans-serif;
-`;
+// ── Server card ───────────────────────────────────────────────────────────────
 
-// ── Focusable server card ─────────────────────────────────────────────────────
-
-function ServerCardItem({ embed, index, onSelect }: {
-  embed: Embed; index: number; onSelect: (url: string, name: string) => void;
-}) {
+function ServerCardItem({ embed, index, onSelect }: { embed: Embed; index: number; onSelect: (url: string, name: string) => void }) {
   const name = embed.server || embed.lang || `Servidor ${index + 1}`;
-  const { ref, focused } = useFocusable<object, HTMLButtonElement>({
+  const { ref, focused, focusSelf } = useFocusable<object, HTMLButtonElement>({
     onEnterPress: () => onSelect(embed.url, name),
     focusKey: `SERVER-${index}`,
   });
+  useEffect(() => { if (index === 0) focusSelf(); }, []);
   return (
     <ServerCard ref={ref} focused={focused} onClick={() => onSelect(embed.url, name)}>
       <ServerName>{name}</ServerName>
@@ -157,7 +173,11 @@ function ServerCardItem({ embed, index, onSelect }: {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-function ServerSelectScreen({ slug, title, isSeries, season = 1, episode = 1, backdropUrl, onSelectServer, onClose }: ServerSelectScreenProps) {
+function ServerSelectScreen({
+  slug, title, isSeries, season = 1, episode = 1,
+  backdropUrl, trailerUrl, overview, year, genre, rating,
+  onSelectServer, onClose,
+}: ServerSelectScreenProps) {
   const [dbEmbeds, setDbEmbeds] = useState<Embed[]>([]);
   const [fallbackEmbeds, setFallbackEmbeds] = useState<Embed[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,7 +185,6 @@ function ServerSelectScreen({ slug, title, isSeries, season = 1, episode = 1, ba
   const { ref: backRef, focused: backFocused, focusSelf } = useFocusable<object, HTMLButtonElement>({
     onEnterPress: onClose, focusKey: 'SS_BACK',
   });
-
   useEffect(() => { focusSelf(); }, [focusSelf]);
 
   useEffect(() => {
@@ -177,12 +196,24 @@ function ServerSelectScreen({ slug, title, isSeries, season = 1, episode = 1, ba
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query.then(({ data }: { data: any }) => {
       const embeds: Embed[] = data?.embeds ?? [];
-      const tid = data?.tmdb_id ? String(data.tmdb_id) : extractTmdbId(embeds);
-      setDbEmbeds(embeds);
-      if (isSeries && tid) {
-        setFallbackEmbeds(buildServersForSeries(tid, season, episode));
-      } else if (tid) {
-        setFallbackEmbeds(buildServersForMovie(tid));
+      // Deduplicar solo por URL exacta
+      const seenUrls = new Set<string>();
+      const uniqueEmbeds = embeds.filter(e => {
+        if (!e.url || seenUrls.has(e.url)) return false;
+        seenUrls.add(e.url);
+        return true;
+      });
+      const tid = data?.tmdb_id ? String(data.tmdb_id) : extractTmdbId(uniqueEmbeds);
+      setDbEmbeds(uniqueEmbeds);
+      // Solo mostrar alternativos si no hay embeds propios
+      if (uniqueEmbeds.length === 0) {
+        if (isSeries && tid) {
+          setFallbackEmbeds(buildServersForSeries(tid, season, episode));
+        } else if (tid) {
+          setFallbackEmbeds(buildServersForMovie(tid));
+        }
+      } else {
+        setFallbackEmbeds([]);
       }
       setLoading(false);
     });
@@ -190,50 +221,58 @@ function ServerSelectScreen({ slug, title, isSeries, season = 1, episode = 1, ba
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009) {
-        e.preventDefault(); onClose();
-      }
+      if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009) { e.preventDefault(); onClose(); }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
   const { focusKey, ref: containerRef } = useFocusable<object, HTMLDivElement>({
-    focusKey: 'SERVER_SELECT', trackChildren: true,
+    focusKey: 'SERVER_SELECT', trackChildren: true, autoRestoreFocus: true,
   });
 
-  const subtitleText = isSeries ? `Temporada ${season} · Episodio ${episode}` : '';
+  const ytId = getYoutubeId(trailerUrl);
+  const metaParts = [year, genre, rating].filter(Boolean).join(' · ');
 
   return (
     <FocusContext.Provider value={focusKey}>
-      <Overlay ref={containerRef} bg={backdropUrl}>
+      <Overlay ref={containerRef}>
+        {ytId ? (
+          <TrailerBg
+            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0&showinfo=0`}
+            allow="autoplay"
+          />
+        ) : backdropUrl ? (
+          <ImageBg src={backdropUrl} />
+        ) : null}
+        <DarkOverlay />
         <Content>
-          <Header>
-            <BackBtn ref={backRef} focused={backFocused} onClick={onClose}>&#8592; Volver</BackBtn>
-            <Title>{title}</Title>
-          </Header>
-          {subtitleText && <Subtitle>{subtitleText}</Subtitle>}
+          <BackBtn ref={backRef} focused={backFocused} onClick={onClose}>&#8592; Volver</BackBtn>
+          <BigTitle>{title}</BigTitle>
+          {metaParts && <Meta>{metaParts}</Meta>}
+          {overview && <Overview>{overview}</Overview>}
+          {isSeries && <EpInfo>Temporada {season} · Episodio {episode}</EpInfo>}
 
           {loading ? (
-            <LoadingText>Cargando servidores...</LoadingText>
+            <div style={{ color: '#aaa', fontSize: 20 }}>Cargando servidores...</div>
           ) : (
             <>
               {dbEmbeds.length > 0 && (
                 <>
                   <SectionLabel>Servidores</SectionLabel>
-                  <ServerGrid style={{ marginBottom: '40px' }}>
-                    {dbEmbeds.map((e, i) => (
-                      <ServerCardItem key={`db-${i}`} embed={e} index={i} onSelect={onSelectServer} />
-                    ))}
+                  <ServerGrid style={{ marginBottom: 32 }}>
+                    {dbEmbeds.map((e, i) => <ServerCardItem key={`db-${i}`} embed={e} index={i} onSelect={onSelectServer} />)}
                   </ServerGrid>
                 </>
               )}
-              <SectionLabel>Servidores alternativos</SectionLabel>
-              <ServerGrid>
-                {fallbackEmbeds.map((e, i) => (
-                  <ServerCardItem key={`fb-${i}`} embed={e} index={i + dbEmbeds.length} onSelect={onSelectServer} />
-                ))}
-              </ServerGrid>
+              {fallbackEmbeds.length > 0 && (
+                <>
+                  <SectionLabel>{dbEmbeds.length > 0 ? 'Servidores alternativos' : 'Servidores'}</SectionLabel>
+                  <ServerGrid>
+                    {fallbackEmbeds.map((e, i) => <ServerCardItem key={`fb-${i}`} embed={e} index={i + dbEmbeds.length} onSelect={onSelectServer} />)}
+                  </ServerGrid>
+                </>
+              )}
             </>
           )}
         </Content>

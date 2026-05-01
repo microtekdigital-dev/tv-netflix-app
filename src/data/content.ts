@@ -11,6 +11,8 @@
   isSeries?: boolean;
   tmdbId?: number;
   totalSeasons?: number;
+  trailerUrl?: string;
+  overview?: string;
 }
 
 export interface ContentCategory {

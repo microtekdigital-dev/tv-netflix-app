@@ -2,12 +2,16 @@
 import styled, { keyframes } from 'styled-components';
 import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import { Asset } from '../../data/content';
+import { WatchProgress } from '../../lib/continueWatching';
 
 interface HeroBannerProps {
   asset: Asset | null;
   featuredMovies?: Asset[];
   onPlayPress?: (asset: Asset) => void;
   onEpisodesPress?: (asset: Asset) => void;
+  onMyListToggle?: (asset: Asset) => void;
+  myListSlugs?: Set<string>;
+  watchProgressMap?: Map<string, WatchProgress>;
 }
 
 const CAROUSEL_INTERVAL = 6000; // ms between auto-advances
@@ -151,6 +155,16 @@ const EpisodesButton = styled.button<{ focused: boolean }>`
   -webkit-transition: -webkit-transform 0.15s ease;
   transition: transform 0.15s ease;
 `;
+const MyListButton = styled.button<{ focused: boolean; inList: boolean }>`
+  background-color: ${({ inList, focused }) => inList ? (focused ? '#fff' : 'rgba(255,255,255,0.8)') : (focused ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)')};
+  color: ${({ inList }) => inList ? '#141414' : '#fff'};
+  border: 2px solid ${({ focused }) => focused ? '#fff' : 'rgba(255,255,255,0.5)'};
+  border-radius: 4px; padding: 12px 28px; font-size: 18px; font-weight: 700;
+  font-family: 'Segoe UI', Arial, sans-serif; cursor: pointer; outline: none;
+  transition: transform 0.15s ease;
+  transform: ${({ focused }) => focused ? 'scale(1.05)' : 'scale(1)'};
+`;
+
 const DotsRow = styled.div`
   position: absolute;
   bottom: 16px;
@@ -172,7 +186,7 @@ const Dot = styled.div<{ active: boolean }>`
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-function HeroBanner({ asset, featuredMovies = [], onPlayPress, onEpisodesPress }: HeroBannerProps) {
+function HeroBanner({ asset, featuredMovies = [], onPlayPress, onEpisodesPress, onMyListToggle, myListSlugs, watchProgressMap }: HeroBannerProps) {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -191,6 +205,11 @@ function HeroBanner({ asset, featuredMovies = [], onPlayPress, onEpisodesPress }
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [asset, featuredMovies.length]);
+
+  const { ref: myListRef, focused: myListFocused } = useFocusable<object, HTMLButtonElement>({
+    onEnterPress: () => { if (displayAsset && onMyListToggle) onMyListToggle(displayAsset); },
+    focusKey: 'HERO_MYLIST',
+  });
 
   const { ref: epRef, focused: epFocused } = useFocusable<object, HTMLButtonElement>({
     onEnterPress: () => { if (displayAsset && onEpisodesPress) onEpisodesPress(displayAsset); },
@@ -254,7 +273,15 @@ function HeroBanner({ asset, featuredMovies = [], onPlayPress, onEpisodesPress }
             focused={focused}
             onClick={() => { if (displayAsset && onPlayPress) onPlayPress(displayAsset); }}
           >
-            &#9654; {displayAsset.isSeries ? 'Ver T1:E1' : 'Reproducir'}
+            {(() => {
+              const progress = watchProgressMap?.get(displayAsset.id);
+              if (progress) {
+                return displayAsset.isSeries
+                  ? `▶ Continuar T${progress.season}:E${progress.episode}`
+                  : '▶ Continuar';
+              }
+              return displayAsset.isSeries ? '▶ Ver T1:E1' : '▶ Reproducir';
+            })()}
           </PlayButton>
           {displayAsset.isSeries && onEpisodesPress && (
             <EpisodesButton
@@ -264,6 +291,16 @@ function HeroBanner({ asset, featuredMovies = [], onPlayPress, onEpisodesPress }
             >
               &#9776; Más episodios
             </EpisodesButton>
+          )}
+          {onMyListToggle && (
+            <MyListButton
+              ref={myListRef}
+              focused={myListFocused}
+              inList={!!myListSlugs?.has(displayAsset.id)}
+              onClick={() => onMyListToggle(displayAsset)}
+            >
+              {myListSlugs?.has(displayAsset.id) ? '✓ En Mi Lista' : '+ Mi Lista'}
+            </MyListButton>
           )}
         </BannerActions>
       </BannerContent>

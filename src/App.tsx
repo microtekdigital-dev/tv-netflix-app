@@ -8,9 +8,13 @@ import SearchScreen from './components/SearchScreen/SearchScreen';
 import PlayerScreen from './components/PlayerScreen/PlayerScreen';
 import EpisodeList from './components/EpisodeList/EpisodeList';
 import ServerSelectScreen from './components/ServerSelectScreen/ServerSelectScreen';
+import LoginScreen from './components/LoginScreen/LoginScreen';
+import { supabase } from './lib/supabase';
 import { Asset, CATEGORIES, ContentCategory } from './data/content';
 import { tvScrollTo } from './keymap';
-import { fetchHomeCategories, fetchSeriesCategories } from './lib/movies';
+import { fetchHomeCategories, fetchSeriesCategories, fetchMyList, addToMyList, removeFromMyList } from './lib/movies';
+import { WatchProgress, loadProgress, saveProgress, deleteProgress, readLocalCache } from './lib/continueWatching';
+import ContinueWatchingRow from './components/ContinueWatchingRow/ContinueWatchingRow';
 
 const GlobalStyle = createGlobalStyle`
   ::-webkit-scrollbar { display: none; }
@@ -81,6 +85,7 @@ const LoadingScreen = styled.div`
 `;
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = checking
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [activeMenuItemId, setActiveMenuItemId] = useState<string>('home');
   const [categories, setCategories] = useState<ContentCategory[]>(CATEGORIES);
@@ -93,7 +98,60 @@ function App() {
   const [serverSelectSeason, setServerSelectSeason] = useState(1);
   const [serverSelectEpisode, setServerSelectEpisode] = useState(1);
   const [episodeListAsset, setEpisodeListAsset] = useState<Asset | null>(null);
+  const [myListSlugs, setMyListSlugs] = useState<Set<string>>(new Set());
+  const [myListAssets, setMyListAssets] = useState<Asset[]>([]);
+  const [watchProgressMap, setWatchProgressMap] = useState<Map<string, WatchProgress>>(new Map());
   const rowsRef = useRef<HTMLDivElement>(null);
+
+  // Check session on mount — Supabase persists session in localStorage
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setIsLoggedIn(!!data.session);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load My List when logged in
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    fetchMyList().then(assets => {
+      setMyListAssets(assets);
+      setMyListSlugs(new Set(assets.map(a => a.id)));
+    });
+    // Load watch progress
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      // Show local cache immediately
+      const cached = readLocalCache(user.id);
+      if (cached.length > 0) {
+        const map = new Map<string, WatchProgress>();
+        cached.forEach(p => map.set(p.slug, p));
+        setWatchProgressMap(map);
+      }
+      // Then sync with Supabase
+      loadProgress(user.id).then(records => {
+        const map = new Map<string, WatchProgress>();
+        records.forEach(p => map.set(p.slug, p));
+        setWatchProgressMap(map);
+      });
+    });
+  }, [isLoggedIn]);
+
+  const onMyListToggle = useCallback(async (asset: Asset) => {
+    const inList = myListSlugs.has(asset.id);
+    if (inList) {
+      await removeFromMyList(asset.id);
+      setMyListSlugs(prev => { const s = new Set(prev); s.delete(asset.id); return s; });
+      setMyListAssets(prev => prev.filter(a => a.id !== asset.id));
+    } else {
+      await addToMyList(asset.id);
+      setMyListSlugs(prev => new Set([...prev, asset.id]));
+      setMyListAssets(prev => [...prev, asset]);
+    }
+  }, [myListSlugs]);
 
   // Load real data from Supabase on mount
   useEffect(() => {
@@ -145,7 +203,38 @@ function App() {
     setServerSelectAsset(null);
     setPlayingTitle(serverName);
     setPlayingUrl(url);
+    // Save watch progress when playback starts
+    if (serverSelectAsset) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        const progress = {
+          user_id: user.id,
+          slug: serverSelectAsset.id,
+          content_type: (serverSelectAsset.isSeries ? 'series' : 'movie') as 'movie' | 'series',
+          season: serverSelectAsset.isSeries ? serverSelectSeason : undefined,
+          episode: serverSelectAsset.isSeries ? serverSelectEpisode : undefined,
+          completed: false,
+        };
+        saveProgress(progress).then(() => {
+          setWatchProgressMap(prev => new Map(prev).set(serverSelectAsset.id, {
+            ...progress,
+            updated_at: new Date().toISOString(),
+          }));
+        });
+      });
+    }
+  }, [serverSelectAsset, serverSelectSeason, serverSelectEpisode]);
+  const onDeleteProgress = useCallback(async (slug: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await deleteProgress(user.id, slug);
+    setWatchProgressMap(prev => {
+      const next = new Map(prev);
+      next.delete(slug);
+      return next;
+    });
   }, []);
+
   const onRowFocus = useCallback(
     (layout: FocusableComponentLayout, _props: object, _details: FocusDetails) => {
       tvScrollTo(rowsRef.current, { top: layout.y });
@@ -160,12 +249,57 @@ function App() {
 
   const isSearchActive = activeMenuItemId === 'search';
   const isSeriesActive = activeMenuItemId === 'series';
-  const activeCategories = isSeriesActive ? seriesCategories : categories;
+  const isMyListActive = activeMenuItemId === 'mylist';
+  const activeCategories = isSeriesActive ? seriesCategories : isMyListActive ? (myListAssets.length > 0 ? [{ id: 'mylist', title: 'Mi Lista', assets: myListAssets }] : []) : categories;
   const activeLoading = isSeriesActive ? seriesLoading : loading;
+
+  // Build assetsMap from all categories for ContinueWatchingRow
+  const assetsMap = React.useMemo(() => {
+    const map = new Map<string, Asset>();
+    [...categories, ...seriesCategories, ...myListAssets.map(a => ({ id: 'mylist', title: '', assets: [a] }))].forEach(cat => {
+      if ('assets' in cat) {
+        cat.assets.forEach((a: Asset) => map.set(a.id, a));
+      }
+    });
+    return map;
+  }, [categories, seriesCategories, myListAssets]);
+
+  // Play with progress: for series, use saved season/episode
+  const onPlayWithProgress = useCallback((asset: Asset, progress: WatchProgress) => {
+    if (asset.isSeries) {
+      setServerSelectSeason(progress.season ?? 1);
+      setServerSelectEpisode(progress.episode ?? 1);
+    } else {
+      setServerSelectSeason(1);
+      setServerSelectEpisode(1);
+    }
+    setServerSelectAsset(asset);
+  }, []);
+
+  // Modified onPlayPress: use saved progress for series
+  const onPlayPressWithProgress = useCallback((asset: Asset) => {
+    const progress = watchProgressMap.get(asset.id);
+    if (asset.isSeries && progress) {
+      setServerSelectSeason(progress.season ?? 1);
+      setServerSelectEpisode(progress.episode ?? 1);
+    } else {
+      setServerSelectSeason(1);
+      setServerSelectEpisode(1);
+    }
+    setServerSelectAsset(asset);
+  }, [watchProgressMap]);
 
   return (
     <AppContainer>
       <GlobalStyle />
+      {isLoggedIn === null && (
+        <LoadingScreen>Verificando sesión...</LoadingScreen>
+      )}
+      {isLoggedIn === false && (
+        <LoginScreen onLogin={() => setIsLoggedIn(true)} />
+      )}
+      {isLoggedIn === true && (
+        <>
       {playingUrl && (
         <PlayerScreen
           url={playingUrl}
@@ -181,6 +315,11 @@ function App() {
           season={serverSelectSeason}
           episode={serverSelectEpisode}
           backdropUrl={serverSelectAsset.imageUrl}
+          trailerUrl={serverSelectAsset.trailerUrl}
+          overview={serverSelectAsset.overview}
+          year={serverSelectAsset.year}
+          genre={serverSelectAsset.genre}
+          rating={serverSelectAsset.rating}
           onSelectServer={onSelectServer}
           onClose={() => setServerSelectAsset(null)}
         />
@@ -207,8 +346,15 @@ function App() {
           />
         ) : (
           <>
-            <HeroBanner asset={selectedAsset} featuredMovies={featuredMovies} onPlayPress={onPlayPress} onEpisodesPress={onEpisodesPress} />
+            <HeroBanner asset={selectedAsset} featuredMovies={featuredMovies} onPlayPress={onPlayPressWithProgress} onEpisodesPress={onEpisodesPress} onMyListToggle={onMyListToggle} myListSlugs={myListSlugs} watchProgressMap={watchProgressMap} />
             <ScrollingRows ref={rowsRef}>
+              <ContinueWatchingRow
+                items={Array.from(watchProgressMap.values())}
+                assetsMap={assetsMap}
+                onPlayWithProgress={onPlayWithProgress}
+                onDelete={onDeleteProgress}
+                onFocus={onRowFocus}
+              />
               {activeCategories.map((category) => (
                 <ContentRow
                   key={category.id}
@@ -222,6 +368,8 @@ function App() {
           </>
         )}
       </MainContent>
+        </>
+      )}
     </AppContainer>
   );
 }

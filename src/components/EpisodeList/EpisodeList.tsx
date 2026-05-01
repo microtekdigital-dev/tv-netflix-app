@@ -137,11 +137,12 @@ const LoadingText = styled.div`
 
 // ── Focusable episode card ────────────────────────────────────────────────────
 
-function EpCard({ ep, season, onSelect }: { ep: Episode; season: number; onSelect: (s: number, e: number) => void }) {
-  const { ref, focused } = useFocusable<object, HTMLDivElement>({
+function EpCard({ ep, season, onSelect, isFirst }: { ep: Episode; season: number; onSelect: (s: number, e: number) => void; isFirst?: boolean }) {
+  const { ref, focused, focusSelf } = useFocusable<object, HTMLDivElement>({
     onEnterPress: () => onSelect(season, ep.episode_number),
     focusKey: `EP-${season}-${ep.episode_number}`,
   });
+  useEffect(() => { if (isFirst) focusSelf(); }, [isFirst]);
 
   const thumb = ep.still_path ? `${TMDB_IMG}${ep.still_path}` : '';
 
@@ -259,6 +260,7 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
   const { focusKey, ref: containerRef } = useFocusable<object, HTMLDivElement>({
     focusKey: 'EPISODE_LIST',
     trackChildren: true,
+    autoRestoreFocus: true,
   });
 
   return (
@@ -289,8 +291,8 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
             ) : episodes.length === 0 ? (
               <LoadingText>No hay episodios disponibles</LoadingText>
             ) : (
-              episodes.map(ep => (
-                <EpCard key={ep.episode_number} ep={ep} season={season} onSelect={handleSelect} />
+              episodes.map((ep, idx) => (
+                <EpCard key={ep.episode_number} ep={ep} season={season} onSelect={handleSelect} isFirst={idx === 0} />
               ))
             )}
           </EpisodeScroll>
