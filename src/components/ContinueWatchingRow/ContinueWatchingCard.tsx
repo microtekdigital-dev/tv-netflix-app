@@ -165,7 +165,7 @@ function ContinueWatchingCard({
     onPlay(asset, progress);
   }, [asset, progress, onPlay]);
 
-  const { ref, focused } = useFocusable<HTMLDivElement>({
+  const { ref, focused, focusSelf } = useFocusable<HTMLDivElement>({
     accessibilityLabel: asset.title,
     onEnterPress: handleEnterPress,
     onFocus,
@@ -175,12 +175,15 @@ function ContinueWatchingCard({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (showDeleteConfirm) {
-        // Navegación dentro del overlay
+        // Navegación dentro del overlay — bloquear Norigin
         if (e.key === 'ArrowLeft' || e.keyCode === 37) {
+          e.preventDefault(); e.stopPropagation();
           setDeleteSelection(0); // "Sí"
         } else if (e.key === 'ArrowRight' || e.keyCode === 39) {
+          e.preventDefault(); e.stopPropagation();
           setDeleteSelection(1); // "No"
         } else if (e.key === 'Enter' || e.keyCode === 13) {
+          e.preventDefault(); e.stopPropagation();
           if (deleteSelection === 0) {
             onDelete(progress.slug);
           } else {
@@ -193,6 +196,7 @@ function ContinueWatchingCard({
           e.keyCode === 27 ||
           e.keyCode === 8
         ) {
+          e.preventDefault(); e.stopPropagation();
           setShowDeleteConfirm(false);
           setDeleteSelection(0);
         }
@@ -228,6 +232,7 @@ function ContinueWatchingCard({
       focused={focused}
       onClick={() => {
         if (!showDeleteConfirm) {
+          focusSelf();
           onPlay(asset, progress);
         }
       }}

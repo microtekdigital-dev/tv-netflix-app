@@ -1,6 +1,6 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
-import { FocusableComponentLayout, FocusDetails, KeyPressDetails } from '@noriginmedia/norigin-spatial-navigation';
+import { FocusableComponentLayout, FocusDetails, KeyPressDetails, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import NavMenu from './components/NavMenu/NavMenu';
 import HeroBanner from './components/HeroBanner/HeroBanner';
 import ContentRow from './components/ContentRow/ContentRow';
@@ -94,6 +94,7 @@ function App() {
   const [seriesLoading, setSeriesLoading] = useState(false);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [playingTitle, setPlayingTitle] = useState('');
+  const [playingAsset, setPlayingAsset] = useState<Asset | null>(null);
   const [serverSelectAsset, setServerSelectAsset] = useState<Asset | null>(null);
   const [serverSelectSeason, setServerSelectSeason] = useState(1);
   const [serverSelectEpisode, setServerSelectEpisode] = useState(1);
@@ -168,6 +169,8 @@ function App() {
   const onAssetPress = useCallback((asset: Asset, _details: KeyPressDetails) => {
     setSelectedAsset(asset);
     setActiveMenuItemId('home');
+    // Move focus to the Play button in the hero
+    setTimeout(() => setFocus('HERO_PLAY'), 50);
   }, []);
 
   // Load series when user navigates to series section
@@ -189,6 +192,7 @@ function App() {
   }, []);
   const onClosePlayer = useCallback(() => {
     setPlayingUrl(null);
+    setPlayingAsset(null);
   }, []);
   const onEpisodesPress = useCallback((asset: Asset) => {
     setEpisodeListAsset(asset);
@@ -203,6 +207,7 @@ function App() {
     setServerSelectAsset(null);
     setPlayingTitle(serverName);
     setPlayingUrl(url);
+    setPlayingAsset(serverSelectAsset);
     // Save watch progress when playback starts
     if (serverSelectAsset) {
       supabase.auth.getUser().then(({ data: { user } }) => {
@@ -304,6 +309,11 @@ function App() {
         <PlayerScreen
           url={playingUrl}
           title={playingTitle}
+          backdropUrl={playingAsset?.imageUrl}
+          overview={playingAsset?.overview}
+          year={playingAsset?.year}
+          genre={playingAsset?.genre}
+          rating={playingAsset?.rating}
           onClose={onClosePlayer}
         />
       )}
@@ -346,24 +356,36 @@ function App() {
           />
         ) : (
           <>
-            <HeroBanner asset={selectedAsset} featuredMovies={featuredMovies} onPlayPress={onPlayPressWithProgress} onEpisodesPress={onEpisodesPress} onMyListToggle={onMyListToggle} myListSlugs={myListSlugs} watchProgressMap={watchProgressMap} />
+            <HeroBanner asset={selectedAsset} featuredMovies={featuredMovies} onPlayPress={onPlayPressWithProgress} onEpisodesPress={onEpisodesPress} onMyListToggle={onMyListToggle} myListSlugs={myListSlugs} watchProgressMap={watchProgressMap} firstRowFocusKey={Array.from(watchProgressMap.values()).filter(p => assetsMap.has(p.slug)).length > 0 ? 'ROW_CONTINUE_WATCHING' : (activeCategories.length > 0 ? `ROW_${activeCategories[0].id}` : undefined)} />
             <ScrollingRows ref={rowsRef}>
-              <ContinueWatchingRow
-                items={Array.from(watchProgressMap.values())}
-                assetsMap={assetsMap}
-                onPlayWithProgress={onPlayWithProgress}
-                onDelete={onDeleteProgress}
-                onFocus={onRowFocus}
-              />
-              {activeCategories.map((category) => (
-                <ContentRow
-                  key={category.id}
-                  title={category.title}
-                  assets={category.assets}
-                  onAssetPress={onAssetPress}
+              {activeMenuItemId === 'home' && (
+                <ContinueWatchingRow
+                  items={Array.from(watchProgressMap.values())}
+                  assetsMap={assetsMap}
+                  onPlayWithProgress={onPlayWithProgress}
+                  onDelete={onDeleteProgress}
                   onFocus={onRowFocus}
+                  focusKey="ROW_CONTINUE_WATCHING"
+                  isFirst
                 />
-              ))}
+              )}
+              {activeCategories.map((category, idx) => {
+                // First row is "first" only when ContinueWatchingRow is not shown
+                const hasContinueWatching = activeMenuItemId === 'home' &&
+                  Array.from(watchProgressMap.values()).filter(p => assetsMap.has(p.slug)).length > 0;
+                const isFirstRow = idx === 0 && !hasContinueWatching;
+                return (
+                  <ContentRow
+                    key={category.id}
+                    title={category.title}
+                    assets={category.assets}
+                    onAssetPress={onAssetPress}
+                    onFocus={onRowFocus}
+                    focusKey={`ROW_${category.id}`}
+                    isFirst={isFirstRow}
+                  />
+                );
+              })}
             </ScrollingRows>
           </>
         )}

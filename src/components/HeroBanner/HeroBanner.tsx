@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
+import { useFocusable, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { Asset } from '../../data/content';
 import { WatchProgress } from '../../lib/continueWatching';
 
@@ -12,6 +12,7 @@ interface HeroBannerProps {
   onMyListToggle?: (asset: Asset) => void;
   myListSlugs?: Set<string>;
   watchProgressMap?: Map<string, WatchProgress>;
+  firstRowFocusKey?: string;
 }
 
 const CAROUSEL_INTERVAL = 6000; // ms between auto-advances
@@ -186,7 +187,7 @@ const Dot = styled.div<{ active: boolean }>`
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-function HeroBanner({ asset, featuredMovies = [], onPlayPress, onEpisodesPress, onMyListToggle, myListSlugs, watchProgressMap }: HeroBannerProps) {
+function HeroBanner({ asset, featuredMovies = [], onPlayPress, onEpisodesPress, onMyListToggle, myListSlugs, watchProgressMap, firstRowFocusKey }: HeroBannerProps) {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -209,11 +210,13 @@ function HeroBanner({ asset, featuredMovies = [], onPlayPress, onEpisodesPress, 
   const { ref: myListRef, focused: myListFocused } = useFocusable<object, HTMLButtonElement>({
     onEnterPress: () => { if (displayAsset && onMyListToggle) onMyListToggle(displayAsset); },
     focusKey: 'HERO_MYLIST',
+    onArrowPress: (dir) => { if (dir === 'down' && firstRowFocusKey) { setFocus(firstRowFocusKey); return false; } return true; },
   });
 
   const { ref: epRef, focused: epFocused } = useFocusable<object, HTMLButtonElement>({
     onEnterPress: () => { if (displayAsset && onEpisodesPress) onEpisodesPress(displayAsset); },
     focusKey: 'HERO_EPISODES',
+    onArrowPress: (dir) => { if (dir === 'down' && firstRowFocusKey) { setFocus(firstRowFocusKey); return false; } return true; },
   });
 
   const { ref, focused } = useFocusable<object, HTMLButtonElement>({
@@ -222,6 +225,7 @@ function HeroBanner({ asset, featuredMovies = [], onPlayPress, onEpisodesPress, 
     },
     accessibilityLabel: displayAsset ? `Reproducir ${displayAsset.title}` : 'Reproducir',
     focusKey: 'HERO_PLAY',
+    onArrowPress: (dir) => { if (dir === 'down' && firstRowFocusKey) { setFocus(firstRowFocusKey); return false; } return true; },
   });
 
   if (!displayAsset) {

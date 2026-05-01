@@ -43,14 +43,19 @@ const ItemLabel = styled.span<{ focused: boolean }>`
 `;
 
 function NavMenuItem({ itemId, label, icon, onSelect }: NavMenuItemProps) {
-  const { ref, focused } = useFocusable<{ itemId: string }, HTMLDivElement>({
+  const { ref, focused, focusSelf } = useFocusable<{ itemId: string }, HTMLDivElement>({
     onEnterPress: () => onSelect(itemId),
     extraProps: { itemId },
     accessibilityLabel: label,
+    focusKey: `MENU_${itemId}`,
   });
 
   return (
-    <ItemWrapper ref={ref} focused={focused} onClick={() => onSelect(itemId)}>
+    <ItemWrapper
+      ref={ref}
+      focused={focused}
+      onClick={() => { focusSelf(); onSelect(itemId); }}
+    >
       {/* dangerouslySetInnerHTML renders HTML entities correctly on all TV browsers */}
       <ItemIcon dangerouslySetInnerHTML={{ __html: icon }} />
       <ItemLabel focused={focused}>{label}</ItemLabel>

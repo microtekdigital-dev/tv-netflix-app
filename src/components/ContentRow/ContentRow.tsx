@@ -6,6 +6,7 @@ import {
   FocusableComponentLayout,
   FocusDetails,
   KeyPressDetails,
+  setFocus,
 } from '@noriginmedia/norigin-spatial-navigation';
 import AssetCard from '../AssetCard/AssetCard';
 import { Asset } from '../../data/content';
@@ -14,6 +15,8 @@ import { tvScrollTo } from '../../keymap';
 interface ContentRowProps {
   title: string;
   assets: Asset[];
+  focusKey?: string;
+  isFirst?: boolean;
   onAssetPress: (asset: Asset, details: KeyPressDetails) => void;
   onFocus: (layout: FocusableComponentLayout, props: object, details: FocusDetails) => void;
 }
@@ -50,18 +53,30 @@ const ScrollingContent = styled.div`
   flex-direction: row;
 `;
 
-function ContentRow({ title, assets, onAssetPress, onFocus }: ContentRowProps) {
+function ContentRow({ title, assets, focusKey: focusKeyProp, isFirst, onAssetPress, onFocus }: ContentRowProps) {
   const { ref, focusKey } = useFocusable<object, HTMLDivElement>({
     accessibilityLabel: title,
     onFocus,
+    ...(focusKeyProp ? { focusKey: focusKeyProp } : {}),
+    onArrowPress: (dir) => {
+      if (dir === 'up' && isFirst) {
+        setFocus('HERO_PLAY');
+        return false;
+      }
+      return true;
+    },
   });
 
   const scrollingRef = useRef<HTMLDivElement>(null);
 
-  // useFocusable's onFocus passes (layout, props, details) — layout.x is the card's left position
+  // Scroll so the focused card is centered in the visible area
   const onAssetFocus = useCallback(
     (layout: FocusableComponentLayout) => {
-      tvScrollTo(scrollingRef.current, { left: layout.x });
+      if (!scrollingRef.current) return;
+      const containerWidth = scrollingRef.current.offsetWidth;
+      const cardWidth = 320; // matches CardWrapper width
+      const centeredLeft = layout.x - containerWidth / 2 + cardWidth / 2;
+      tvScrollTo(scrollingRef.current, { left: Math.max(0, centeredLeft) });
     },
     [scrollingRef]
   );

@@ -1,6 +1,6 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { useFocusable, FocusContext } from '@noriginmedia/norigin-spatial-navigation';
+import { useFocusable, FocusContext, resume, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { supabase } from '../../lib/supabase';
 
 interface Episode {
@@ -137,10 +137,23 @@ const LoadingText = styled.div`
 
 // ── Focusable episode card ────────────────────────────────────────────────────
 
-function EpCard({ ep, season, onSelect, isFirst }: { ep: Episode; season: number; onSelect: (s: number, e: number) => void; isFirst?: boolean }) {
+function EpCard({ ep, season, onSelect, isFirst, isLast, onFocus }: {
+  ep: Episode;
+  season: number;
+  onSelect: (s: number, e: number) => void;
+  isFirst?: boolean;
+  isLast?: boolean;
+  onFocus?: (el: HTMLDivElement) => void;
+}) {
   const { ref, focused, focusSelf } = useFocusable<object, HTMLDivElement>({
     onEnterPress: () => onSelect(season, ep.episode_number),
     focusKey: `EP-${season}-${ep.episode_number}`,
+    onArrowPress: (dir) => {
+      if (dir === 'up' && isFirst) { setFocus('EP_BACK'); return false; }
+      if (dir === 'down' && isLast) { return false; } // stay on last episode
+      return true;
+    },
+    onFocus: () => { if (ref.current && onFocus) onFocus(ref.current); },
   });
   useEffect(() => { if (isFirst) focusSelf(); }, [isFirst]);
 
@@ -160,6 +173,41 @@ function EpCard({ ep, season, onSelect, isFirst }: { ep: Episode; season: number
   );
 }
 
+// ── Season tab button ─────────────────────────────────────────────────────────
+
+function SeasonTabBtn({ s, active, totalSeasons, onSelect }: {
+  s: number;
+  active: boolean;
+  totalSeasons: number;
+  onSelect: (s: number) => void;
+}) {
+  const { ref, focused, focusSelf } = useFocusable<object, HTMLButtonElement>({
+    focusKey: `EP_SEASON_${s}`,
+    onEnterPress: () => onSelect(s),
+    onArrowPress: (dir) => {
+      if (dir === 'left' && s === 1) return false;
+      if (dir === 'right' && s === totalSeasons) return false;
+      if (dir === 'left') { setFocus(`EP_SEASON_${s - 1}`); return false; }
+      if (dir === 'right') { setFocus(`EP_SEASON_${s + 1}`); return false; }
+      if (dir === 'down') { setFocus(`EP-${s}-1`); return false; }
+      if (dir === 'up') { setFocus('EP_BACK'); return false; }
+      return true;
+    },
+  });
+  useEffect(() => { if (active) focusSelf(); }, [active]);
+  return (
+    <SeasonTab
+      ref={ref}
+      active={active}
+      focused={focused}
+      data-active={active ? 'true' : 'false'}
+      onClick={() => { focusSelf(); onSelect(s); }}
+    >
+      Temporada {s}
+    </SeasonTab>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, backdropUrl, onSelectEpisode, onClose }: EpisodeListProps) {
@@ -169,6 +217,13 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
   const [resolvedTmdbId, setResolvedTmdbId] = useState<number | null>(tmdbIdProp ?? null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const seasonTabsRef = useRef<HTMLDivElement>(null);
+
+  // Container declared first so children register inside its context
+  const { focusKey, ref: containerRef } = useFocusable<object, HTMLDivElement>({
+    focusKey: 'EPISODE_LIST',
+    trackChildren: true,
+    autoRestoreFocus: true,
+  });
 
   // Auto-scroll active season tab into view
   useEffect(() => {
@@ -180,9 +235,25 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
   const { ref: backRef, focused: backFocused, focusSelf } = useFocusable<object, HTMLButtonElement>({
     onEnterPress: onClose,
     focusKey: 'EP_BACK',
+    onArrowPress: (dir) => {
+      if (dir === 'down') {
+        if (totalSeasons > 1) { setFocus(`EP_SEASON_${season}`); return false; }
+        setFocus(`EP-${season}-1`);
+        return false;
+      }
+      return true;
+    },
   });
 
   useEffect(() => { focusSelf(); }, [focusSelf]);
+
+  // Guarantee Norigin is always resumed when this overlay closes
+  useEffect(() => {
+    return () => {
+      resume();
+      setTimeout(() => setFocus('HERO_PLAY'), 50);
+    };
+  }, []);
 
   // Resolve tmdb_id from Supabase if not provided
   useEffect(() => {
@@ -195,7 +266,7 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
         if (data?.tmdb_id) {
           setResolvedTmdbId(data.tmdb_id);
         } else {
-          setLoading(false); // no tmdb_id available
+          setLoading(false);
         }
       })
       .catch(() => setLoading(false));
@@ -212,7 +283,6 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
         if (eps.length > 0) {
           setEpisodes(eps);
         } else {
-          // Fallback to English if no Spanish episodes
           return fetch(`https://api.themoviedb.org/3/tv/${resolvedTmdbId}/season/${season}?api_key=${TMDB_KEY}&language=en-US`)
             .then(r => r.json())
             .then(d2 => setEpisodes(d2.episodes ?? []));
@@ -226,42 +296,36 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
     onSelectEpisode(s, e);
   }, [onSelectEpisode]);
 
+  // Scroll the focused episode card into view
+  const handleEpFocus = useCallback((el: HTMLDivElement) => {
+    if (!scrollRef.current) return;
+    const container = scrollRef.current;
+    const elTop = el.offsetTop;
+    const elBottom = elTop + el.offsetHeight;
+    const containerTop = container.scrollTop;
+    const containerBottom = containerTop + container.offsetHeight;
+    if (elBottom > containerBottom) {
+      container.scrollTo({ top: elBottom - container.offsetHeight + 20, behavior: 'smooth' });
+    } else if (elTop < containerTop) {
+      container.scrollTo({ top: elTop - 20, behavior: 'smooth' });
+    }
+  }, []);
+
+  // Only handle Escape/Back and PageUp/Down — let Norigin handle arrows
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009) {
+      if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009 || e.keyCode === 461) {
         e.preventDefault();
         onClose();
         return;
       }
-      // Left/Right: change season. Up/Down: scroll episodes
-      if (e.key === 'ArrowLeft' || e.keyCode === 37) { e.preventDefault(); setSeason(s => Math.max(1, s - 1)); return; }
-      if (e.key === 'ArrowRight' || e.keyCode === 39) { e.preventDefault(); setSeason(s => Math.min(totalSeasons, s + 1)); return; }
-      if (e.key === 'ArrowDown' || e.keyCode === 40) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: 220, behavior: 'smooth' }); return; }
-      if (e.key === 'ArrowUp' || e.keyCode === 38) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: -220, behavior: 'smooth' }); return; }
-      // Left/Right: change season | Up/Down: scroll episodes | PageUp/L1/R1: change season
-      if (e.key === 'ArrowLeft' || e.keyCode === 37) { e.preventDefault(); setSeason(s => Math.max(1, s - 1)); return; }
-      if (e.key === 'ArrowRight' || e.keyCode === 39) { e.preventDefault(); setSeason(s => Math.min(totalSeasons, s + 1)); return; }
-      if (e.key === 'ArrowDown' || e.keyCode === 40) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: 220, behavior: 'smooth' }); return; }
-      if (e.key === 'ArrowUp' || e.keyCode === 38) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: -220, behavior: 'smooth' }); return; }
-      // Samsung/LG channel buttons and PageUp/Down
-      // Arrow keys: Left/Right = change season, Up/Down = scroll episodes
-      if (e.key === 'ArrowLeft' || e.keyCode === 37) { e.preventDefault(); setSeason(s => Math.max(1, s - 1)); return; }
-      if (e.key === 'ArrowRight' || e.keyCode === 39) { e.preventDefault(); setSeason(s => Math.min(totalSeasons, s + 1)); return; }
-      if (e.key === 'ArrowDown' || e.keyCode === 40) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: 220, behavior: 'smooth' }); return; }
-      if (e.key === 'ArrowUp' || e.keyCode === 38) { e.preventDefault(); if (scrollRef.current) scrollRef.current.scrollBy({ top: -220, behavior: 'smooth' }); return; }
-      // PageUp/Down and LG/Samsung channel keys
+      // PageUp/Down and LG/Samsung channel keys for season change
       if (e.keyCode === 33 || e.keyCode === 427) { e.preventDefault(); setSeason(s => Math.max(1, s - 1)); }
       if (e.keyCode === 34 || e.keyCode === 428) { e.preventDefault(); setSeason(s => Math.min(totalSeasons, s + 1)); }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
-  const { focusKey, ref: containerRef } = useFocusable<object, HTMLDivElement>({
-    focusKey: 'EPISODE_LIST',
-    trackChildren: true,
-    autoRestoreFocus: true,
-  });
+  }, [onClose, totalSeasons]);
 
   return (
     <FocusContext.Provider value={focusKey}>
@@ -276,10 +340,7 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
 
           <SeasonTabs ref={seasonTabsRef}>
             {Array.from({ length: totalSeasons }, (_, i) => i + 1).map(s => (
-              <SeasonTab key={s} active={season === s} focused={false} data-active={season === s ? 'true' : 'false'}
-                onClick={() => setSeason(s)}>
-                Temporada {s}
-              </SeasonTab>
+              <SeasonTabBtn key={s} s={s} active={season === s} totalSeasons={totalSeasons} onSelect={setSeason} />
             ))}
           </SeasonTabs>
 
@@ -292,7 +353,7 @@ function EpisodeList({ slug, tmdbId: tmdbIdProp, totalSeasons, seriesTitle, back
               <LoadingText>No hay episodios disponibles</LoadingText>
             ) : (
               episodes.map((ep, idx) => (
-                <EpCard key={ep.episode_number} ep={ep} season={season} onSelect={handleSelect} isFirst={idx === 0} />
+                <EpCard key={ep.episode_number} ep={ep} season={season} onSelect={handleSelect} isFirst={idx === 0} isLast={idx === episodes.length - 1} onFocus={handleEpFocus} />
               ))
             )}
           </EpisodeScroll>

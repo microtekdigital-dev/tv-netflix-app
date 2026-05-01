@@ -1,6 +1,6 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { useFocusable, FocusContext } from '@noriginmedia/norigin-spatial-navigation';
+import { useFocusable, FocusContext, resume, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { supabase } from '../../lib/supabase';
 
 interface Embed { url: string; lang: string | null; server: string | null; quality: string | null; }
@@ -156,13 +156,17 @@ const ServerLang = styled.div`
 
 // ── Server card ───────────────────────────────────────────────────────────────
 
-function ServerCardItem({ embed, index, onSelect }: { embed: Embed; index: number; onSelect: (url: string, name: string) => void }) {
+function ServerCardItem({ embed, index, onSelect, isFirst }: { embed: Embed; index: number; onSelect: (url: string, name: string) => void; isFirst?: boolean }) {
   const name = embed.server || embed.lang || `Servidor ${index + 1}`;
   const { ref, focused, focusSelf } = useFocusable<object, HTMLButtonElement>({
     onEnterPress: () => onSelect(embed.url, name),
     focusKey: `SERVER-${index}`,
+    onArrowPress: (dir) => {
+      if (dir === 'up') { setFocus('SS_BACK'); return false; }
+      return true;
+    },
   });
-  useEffect(() => { if (index === 0) focusSelf(); }, []);
+  useEffect(() => { if (isFirst) focusSelf(); }, [isFirst]);
   return (
     <ServerCard ref={ref} focused={focused} onClick={() => onSelect(embed.url, name)}>
       <ServerName>{name}</ServerName>
@@ -182,10 +186,39 @@ function ServerSelectScreen({
   const [fallbackEmbeds, setFallbackEmbeds] = useState<Embed[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { ref: backRef, focused: backFocused, focusSelf } = useFocusable<object, HTMLButtonElement>({
-    onEnterPress: onClose, focusKey: 'SS_BACK',
+  // Container must be declared first so children register inside its context
+  const { focusKey, ref: containerRef } = useFocusable<object, HTMLDivElement>({
+    focusKey: 'SERVER_SELECT',
+    trackChildren: true,
+    autoRestoreFocus: true,
+    isFocusBoundary: true,  // prevent focus from escaping this overlay
   });
-  useEffect(() => { focusSelf(); }, [focusSelf]);
+
+  const allEmbeds = [...dbEmbeds, ...fallbackEmbeds];
+
+  const { ref: backRef, focused: backFocused, focusSelf: focusBack } = useFocusable<object, HTMLButtonElement>({
+    onEnterPress: onClose,
+    focusKey: 'SS_BACK',
+    onArrowPress: (dir) => {
+      if (dir === 'down' && allEmbeds.length > 0) {
+        setFocus('SERVER-0');
+        return false;
+      }
+      // If no servers loaded yet or other direction, stay put
+      return false;
+    },
+  });
+
+  // Focus back button on mount
+  useEffect(() => { focusBack(); }, [focusBack]);
+
+  // Guarantee Norigin is always resumed when this overlay closes
+  useEffect(() => {
+    return () => {
+      resume();
+      setTimeout(() => setFocus('HERO_PLAY'), 50);
+    };
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -196,7 +229,6 @@ function ServerSelectScreen({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query.then(({ data }: { data: any }) => {
       const embeds: Embed[] = data?.embeds ?? [];
-      // Deduplicar solo por URL exacta
       const seenUrls = new Set<string>();
       const uniqueEmbeds = embeds.filter(e => {
         if (!e.url || seenUrls.has(e.url)) return false;
@@ -205,7 +237,6 @@ function ServerSelectScreen({
       });
       const tid = data?.tmdb_id ? String(data.tmdb_id) : extractTmdbId(uniqueEmbeds);
       setDbEmbeds(uniqueEmbeds);
-      // Solo mostrar alternativos si no hay embeds propios
       if (uniqueEmbeds.length === 0) {
         if (isSeries && tid) {
           setFallbackEmbeds(buildServersForSeries(tid, season, episode));
@@ -221,15 +252,11 @@ function ServerSelectScreen({
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009) { e.preventDefault(); onClose(); }
+      if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009 || e.keyCode === 461) { e.preventDefault(); onClose(); }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
-
-  const { focusKey, ref: containerRef } = useFocusable<object, HTMLDivElement>({
-    focusKey: 'SERVER_SELECT', trackChildren: true, autoRestoreFocus: true,
-  });
 
   const ytId = getYoutubeId(trailerUrl);
   const metaParts = [year, genre, rating].filter(Boolean).join(' · ');
@@ -261,7 +288,9 @@ function ServerSelectScreen({
                 <>
                   <SectionLabel>Servidores</SectionLabel>
                   <ServerGrid style={{ marginBottom: 32 }}>
-                    {dbEmbeds.map((e, i) => <ServerCardItem key={`db-${i}`} embed={e} index={i} onSelect={onSelectServer} />)}
+                    {dbEmbeds.map((e, i) => (
+                      <ServerCardItem key={`db-${i}`} embed={e} index={i} onSelect={onSelectServer} isFirst={i === 0} />
+                    ))}
                   </ServerGrid>
                 </>
               )}
@@ -269,7 +298,9 @@ function ServerSelectScreen({
                 <>
                   <SectionLabel>{dbEmbeds.length > 0 ? 'Servidores alternativos' : 'Servidores'}</SectionLabel>
                   <ServerGrid>
-                    {fallbackEmbeds.map((e, i) => <ServerCardItem key={`fb-${i}`} embed={e} index={i + dbEmbeds.length} onSelect={onSelectServer} />)}
+                    {fallbackEmbeds.map((e, i) => (
+                      <ServerCardItem key={`fb-${i}`} embed={e} index={i + dbEmbeds.length} onSelect={onSelectServer} isFirst={dbEmbeds.length === 0 && i === 0} />
+                    ))}
                   </ServerGrid>
                 </>
               )}

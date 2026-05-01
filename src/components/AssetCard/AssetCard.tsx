@@ -19,21 +19,19 @@ const CardWrapper = styled.div<{ focused: boolean }>`
   height: 180px;
   border-radius: 6px;
   border: ${({ focused }) => (focused ? '3px solid #fff' : '3px solid transparent')};
-  -webkit-transform: ${({ focused }) => (focused ? 'scale(1.06)' : 'scale(1)')};
-  transform: ${({ focused }) => (focused ? 'scale(1.06)' : 'scale(1)')};
-  -webkit-transition: -webkit-transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  box-shadow: ${({ focused }) => focused ? '0 8px 32px rgba(0,0,0,0.8)' : 'none'};
+  -webkit-transform: ${({ focused }) => (focused ? 'scale(1.08)' : 'scale(1)')};
+  transform: ${({ focused }) => (focused ? 'scale(1.08)' : 'scale(1)')};
+  -webkit-transition: -webkit-transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: ${({ focused }) => focused ? '0 12px 40px rgba(0,0,0,0.9), 0 0 0 2px rgba(255,255,255,0.3)' : 'none'};
   margin-right: 16px;
-  margin-top: 12px;
-  margin-bottom: 12px;
+  margin-top: 20px;
+  margin-bottom: 20px;
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
   position: relative;
-  /* overflow visible so scale doesn't get clipped by parent */
   overflow: visible;
   cursor: pointer;
-  /* clip the image inside without clipping the scale effect */
   -webkit-transform-origin: center center;
   transform-origin: center center;
 `;
@@ -116,7 +114,7 @@ const CardMeta = styled.div`
 function AssetCard({ asset, onEnterPress, onFocus }: AssetCardProps) {
   const [imgError, setImgError] = React.useState(false);
 
-  const { ref, focused } = useFocusable<{ asset: Asset }, HTMLDivElement>({
+  const { ref, focused, focusSelf } = useFocusable<{ asset: Asset }, HTMLDivElement>({
     accessibilityLabel: asset.title,
     onEnterPress: (props, details) => onEnterPress(props?.asset ?? asset, details),
     onFocus,
@@ -129,7 +127,7 @@ function AssetCard({ asset, onEnterPress, onFocus }: AssetCardProps) {
     <CardWrapper
       ref={ref}
       focused={focused}
-      onClick={() => onEnterPress(asset, { pressedKeys: {} })}
+      onClick={() => { focusSelf(); onEnterPress(asset, { pressedKeys: {} }); }}
     >
       <CardInner>
         {hasImage ? (

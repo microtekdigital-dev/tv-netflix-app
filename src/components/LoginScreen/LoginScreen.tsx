@@ -178,6 +178,11 @@ function LoginScreen({ onLogin }: LoginScreenProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Container declared first so all children register inside its context
+  const { focusKey, ref: containerRef } = useFocusable<object, HTMLDivElement>({
+    focusKey: 'LOGIN', trackChildren: true, autoRestoreFocus: true,
+  });
+
   const handleKey = useCallback((k: string) => {
     const setter = activeField === 'email' ? setEmail : setPassword;
     if (k === 'BORRAR') { setter(v => v.slice(0, -1)); return; }
@@ -208,10 +213,6 @@ function LoginScreen({ onLogin }: LoginScreenProps) {
     window.addEventListener('keydown', handleKeyboard);
     return () => window.removeEventListener('keydown', handleKeyboard);
   }, []);
-
-  const { focusKey, ref: containerRef } = useFocusable<object, HTMLDivElement>({
-    focusKey: 'LOGIN', trackChildren: true, autoRestoreFocus: true,
-  });
 
   return (
     <FocusContext.Provider value={focusKey}>

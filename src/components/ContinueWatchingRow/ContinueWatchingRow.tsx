@@ -5,6 +5,7 @@ import {
   FocusContext,
   FocusableComponentLayout,
   FocusDetails,
+  setFocus,
 } from '@noriginmedia/norigin-spatial-navigation';
 import { Asset } from '../../data/content';
 import { WatchProgress } from '../../lib/continueWatching';
@@ -17,6 +18,8 @@ interface ContinueWatchingRowProps {
   onPlayWithProgress: (asset: Asset, progress: WatchProgress) => void;
   onDelete: (slug: string) => void;
   onFocus: (layout: FocusableComponentLayout, props: object, details: FocusDetails) => void;
+  focusKey?: string;
+  isFirst?: boolean;
 }
 
 const RowWrapper = styled.div`
@@ -57,17 +60,31 @@ function ContinueWatchingRow({
   onPlayWithProgress,
   onDelete,
   onFocus,
+  focusKey: focusKeyProp,
+  isFirst,
 }: ContinueWatchingRowProps) {
   const { ref, focusKey } = useFocusable<object, HTMLDivElement>({
     accessibilityLabel: 'Continuar Viendo',
     onFocus,
+    ...(focusKeyProp ? { focusKey: focusKeyProp } : {}),
+    onArrowPress: (dir) => {
+      if (dir === 'up' && isFirst) {
+        setFocus('HERO_PLAY');
+        return false;
+      }
+      return true;
+    },
   });
 
   const scrollingRef = useRef<HTMLDivElement>(null);
 
   const onCardFocus = useCallback(
     (layout: FocusableComponentLayout) => {
-      tvScrollTo(scrollingRef.current, { left: layout.x });
+      if (!scrollingRef.current) return;
+      const containerWidth = scrollingRef.current.offsetWidth;
+      const cardWidth = 320;
+      const centeredLeft = layout.x - containerWidth / 2 + cardWidth / 2;
+      tvScrollTo(scrollingRef.current, { left: Math.max(0, centeredLeft) });
     },
     [scrollingRef]
   );

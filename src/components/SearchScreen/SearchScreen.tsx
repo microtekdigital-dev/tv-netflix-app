@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { FocusableComponentLayout, FocusDetails, KeyPressDetails } from '@noriginmedia/norigin-spatial-navigation';
+import { FocusableComponentLayout, FocusDetails, KeyPressDetails, setFocus, pause, resume } from '@noriginmedia/norigin-spatial-navigation';
 import ContentRow from '../ContentRow/ContentRow';
 import { Asset, ContentCategory } from '../../data/content';
 import { tvScrollTo } from '../../keymap';
@@ -58,10 +58,7 @@ const SearchInput = styled.input`
   font-family: 'Segoe UI', Arial, sans-serif;
   width: 100%;
   caret-color: #e50914;
-
-  &::placeholder {
-    color: #666;
-  }
+  &::placeholder { color: #666; }
 `;
 
 const SearchIcon = styled.span`
@@ -95,22 +92,20 @@ function SearchScreen({ categories, onAssetPress }: SearchScreenProps) {
   const [searching, setSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-focus the input when the search screen mounts
+  const displayCategories = query.trim() ? searchResults : categories;
+
+  // Pause Norigin while search is active so it doesn't intercept keypresses
   useEffect(() => {
-    inputRef.current?.focus();
+    pause();
+    setTimeout(() => inputRef.current?.focus(), 50);
+    return () => { resume(); };
   }, []);
 
   const handleQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setQuery(val);
-
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (!val.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
+    if (!val.trim()) { setSearchResults([]); return; }
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       const [movieResults, serieResults] = await Promise.all([
@@ -122,6 +117,27 @@ function SearchScreen({ categories, onAssetPress }: SearchScreenProps) {
     }, 400);
   }, []);
 
+  // Arrow down from input: blur input, resume Norigin, jump to first row
+  const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      inputRef.current?.blur();
+      resume();
+      const firstCat = displayCategories[0];
+      if (firstCat) setFocus(`ROW_${firstCat.id}`);
+    }
+  }, [displayCategories]);
+
+  // When input loses focus to a row click, resume Norigin
+  const handleInputBlur = useCallback(() => {
+    resume();
+  }, []);
+
+  // When input is clicked/focused again, pause Norigin
+  const handleInputFocus = useCallback(() => {
+    pause();
+  }, []);
+
   const onRowFocus = useCallback(
     (layout: FocusableComponentLayout, _props: object, _details: FocusDetails) => {
       tvScrollTo(rowsRef.current, { top: layout.y });
@@ -129,7 +145,6 @@ function SearchScreen({ categories, onAssetPress }: SearchScreenProps) {
     [rowsRef]
   );
 
-  const displayCategories = query.trim() ? searchResults : categories;
   const subtitle = query.trim()
     ? searching
       ? 'Buscando...'
@@ -150,6 +165,9 @@ function SearchScreen({ categories, onAssetPress }: SearchScreenProps) {
             placeholder="Buscar películas..."
             value={query}
             onChange={handleQueryChange}
+            onKeyDown={handleInputKeyDown}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
           />
         </SearchInputWrapper>
         <Subtitle>{subtitle}</Subtitle>
@@ -162,6 +180,7 @@ function SearchScreen({ categories, onAssetPress }: SearchScreenProps) {
             assets={category.assets}
             onAssetPress={onAssetPress}
             onFocus={onRowFocus}
+            focusKey={`ROW_${category.id}`}
           />
         ))}
       </RowsWrapper>

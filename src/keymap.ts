@@ -26,7 +26,6 @@ export function initKeyMap() {
  */
 export function registerTizenKeys() {
   try {
-    // Samsung Tizen API to register remote control keys
     const tizen = (window as any).tizen;
     if (tizen && tizen.tvinputdevice) {
       const keys = [
@@ -34,9 +33,34 @@ export function registerTizenKeys() {
         'Enter', 'Return', 'Back',
         'MediaPlay', 'MediaPause', 'MediaPlayPause',
         'MediaStop', 'MediaFastForward', 'MediaRewind',
+        'ChannelUp', 'ChannelDown',
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
       ];
       keys.forEach(key => {
         try { tizen.tvinputdevice.registerKey(key); } catch {}
+      });
+    }
+  } catch {}
+}
+
+/**
+ * Register LG webOS remote keys.
+ * webOS uses the Magic Remote and standard remote — both need key registration.
+ */
+export function registerWebOSKeys() {
+  try {
+    const webOS = (window as any).webOS;
+    if (webOS && webOS.service) {
+      // webOS keys are registered via the keys API
+      const keys = [
+        'VK_LEFT', 'VK_RIGHT', 'VK_UP', 'VK_DOWN',
+        'VK_ENTER', 'VK_BACK',
+        'VK_PLAY', 'VK_PAUSE', 'VK_STOP',
+        'VK_FAST_FWD', 'VK_REWIND',
+        'VK_CHANNEL_UP', 'VK_CHANNEL_DOWN',
+      ];
+      keys.forEach(key => {
+        try { (window as any).keys?.registerKey?.(key); } catch {}
       });
     }
   } catch {}
