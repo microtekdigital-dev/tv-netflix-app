@@ -208,6 +208,8 @@ function App() {
     setPlayingTitle(serverName);
     setPlayingUrl(url);
     setPlayingAsset(serverSelectAsset);
+    // Focus the back button in PlayerScreen
+    setTimeout(() => setFocus('PLAYER_BACK'), 100);
     // Save watch progress when playback starts
     if (serverSelectAsset) {
       supabase.auth.getUser().then(({ data: { user } }) => {

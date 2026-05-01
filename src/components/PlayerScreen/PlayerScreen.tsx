@@ -1,9 +1,15 @@
 ﻿import { useEffect } from 'react';
 import styled from 'styled-components';
+import { useFocusable, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 
 interface PlayerScreenProps {
   url: string;
   title: string;
+  backdropUrl?: string;
+  overview?: string;
+  year?: number;
+  genre?: string;
+  rating?: string;
   onClose: () => void;
 }
 
@@ -19,20 +25,36 @@ const StyledIframe = styled.iframe`
   border: none; display: block;
 `;
 
-const BackBtn = styled.button`
+const BackBtn = styled.button<{ $focused: boolean }>`
   position: absolute; top: 20px; left: 40px;
   z-index: 200;
-  background: rgba(0,0,0,0.7); color: #fff;
-  border: 2px solid rgba(255,255,255,0.6);
+  background-color: #e50914;
+  color: #fff;
+  border: 3px solid #fff;
   border-radius: 4px; padding: 10px 24px;
   font-size: 18px; font-family: 'Segoe UI', Arial, sans-serif;
   cursor: pointer;
+  box-shadow: 0 0 20px rgba(229,9,20,0.7);
+  transition: all 0.15s ease;
 `;
 
 function PlayerScreen({ url, title, onClose }: PlayerScreenProps) {
+  const { ref: backRef, focused: backFocused } = useFocusable<object, HTMLButtonElement>({
+    focusKey: 'PLAYER_BACK',
+    onEnterPress: onClose,
+  });
+
+  useEffect(() => {
+    const t = setTimeout(() => setFocus('PLAYER_BACK'), 100);
+    return () => {
+      clearTimeout(t);
+      setFocus('HERO_PLAY');
+    };
+  }, []);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009) {
+      if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 10009 || e.keyCode === 461) {
         e.preventDefault();
         onClose();
       }
@@ -50,7 +72,9 @@ function PlayerScreen({ url, title, onClose }: PlayerScreenProps) {
         allow="autoplay; fullscreen; encrypted-media"
         title={title}
       />
-      <BackBtn onClick={onClose}>&#8592; Volver</BackBtn>
+      <BackBtn ref={backRef} $focused={backFocused} onClick={onClose}>
+        &#8592; Volver
+      </BackBtn>
     </Overlay>
   );
 }
