@@ -236,15 +236,22 @@ function ServerSelectScreen({
         return true;
       });
       const tid = data?.tmdb_id ? String(data.tmdb_id) : extractTmdbId(uniqueEmbeds);
-      setDbEmbeds(uniqueEmbeds);
-      if (uniqueEmbeds.length === 0) {
-        if (isSeries && tid) {
+      // For series: always build URLs dynamically with the selected season/episode
+      // DB embeds are only used to extract tmdb_id, not as-is (they're hardcoded to S1E1)
+      if (isSeries) {
+        setDbEmbeds([]);
+        if (tid) {
           setFallbackEmbeds(buildServersForSeries(tid, season, episode));
-        } else if (tid) {
-          setFallbackEmbeds(buildServersForMovie(tid));
+        } else {
+          setFallbackEmbeds([]);
         }
       } else {
-        setFallbackEmbeds([]);
+        setDbEmbeds(uniqueEmbeds);
+        if (uniqueEmbeds.length === 0 && tid) {
+          setFallbackEmbeds(buildServersForMovie(tid));
+        } else {
+          setFallbackEmbeds([]);
+        }
       }
       setLoading(false);
     });
