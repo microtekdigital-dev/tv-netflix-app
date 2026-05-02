@@ -3,12 +3,12 @@ import { Asset, ContentCategory } from '../data/content';
 
 const HOME_SELECT = 'slug,title,year,poster,backdrop,rating,genre,trailer,overview,embeds';
 
-const LUVANA_DOMAINS = ['streamwish', 'goodstream', 'filemoon', 'voe.sx', 'hlswish', 'sbsonic', 'drive.google.com'];
+const VALID_EMBED_DOMAINS = ['streamwish', 'goodstream', 'filemoon', 'voe.sx', 'hlswish', 'sbsonic', 'drive.google.com', 'vidlink.pro', 'vidsrc.to', 'vidsrc.me', '2embed.cc', 'multiembed.mov', 'embed.su', 'vsembed.ru', 'videasy.net', 'vimeos.net'];
 
 function hasValidEmbeds(m: DbMovie & { embeds?: unknown }): boolean {
   if (!m.embeds) return false;
   const embedsStr = JSON.stringify(m.embeds);
-  return LUVANA_DOMAINS.some(d => embedsStr.includes(d));
+  return VALID_EMBED_DOMAINS.some(d => embedsStr.includes(d));
 }
 
 interface DbMovie {
