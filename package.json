@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:tizen": "vite build && node scripts/package-tizen.js",
     "preview": "vite preview",
     "start": "vite",
     "eslint": "eslint src",

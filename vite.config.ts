@@ -8,6 +8,12 @@ export default defineConfig({
   server: {
     port: 3000
   },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    // Tizen requires relative paths, not absolute
+    base: './',
+  },
   resolve: {
     alias: {
       // Vendored copies of the monorepo packages — works in any environment

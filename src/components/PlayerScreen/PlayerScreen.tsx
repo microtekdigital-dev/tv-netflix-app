@@ -10,6 +10,8 @@ interface PlayerScreenProps {
   year?: number;
   genre?: string;
   rating?: string;
+  type?: string;
+  srt?: string;
   onClose: () => void;
 }
 
@@ -25,7 +27,13 @@ const StyledIframe = styled.iframe`
   border: none; display: block;
 `;
 
-const BackBtn = styled.button<{ $focused: boolean }>`
+const StyledVideo = styled.video`
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #000;
+`;
+
+const BackBtn = styled.button`
   position: absolute; top: 20px; left: 40px;
   z-index: 200;
   background-color: #e50914;
@@ -35,11 +43,10 @@ const BackBtn = styled.button<{ $focused: boolean }>`
   font-size: 18px; font-family: 'Segoe UI', Arial, sans-serif;
   cursor: pointer;
   box-shadow: 0 0 20px rgba(229,9,20,0.7);
-  transition: all 0.15s ease;
 `;
 
-function PlayerScreen({ url, title, onClose }: PlayerScreenProps) {
-  const { ref: backRef, focused: backFocused } = useFocusable<object, HTMLButtonElement>({
+function PlayerScreen({ url, title, type, srt, onClose }: PlayerScreenProps) {
+  const { ref: backRef } = useFocusable<object, HTMLButtonElement>({
     focusKey: 'PLAYER_BACK',
     onEnterPress: onClose,
   });
@@ -63,16 +70,37 @@ function PlayerScreen({ url, title, onClose }: PlayerScreenProps) {
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
+  const isDrive = type === 'drive';
+
   return (
     <Overlay>
-      <StyledIframe
-        key={url}
-        src={url}
-        allowFullScreen
-        allow="autoplay; fullscreen; encrypted-media"
-        title={title}
-      />
-      <BackBtn ref={backRef} $focused={backFocused} onClick={onClose}>
+      {isDrive ? (
+        <StyledVideo
+          src={url}
+          autoPlay
+          controls
+          crossOrigin="anonymous"
+        >
+          {srt && (
+            <track
+              kind="subtitles"
+              src={srt}
+              srcLang="es"
+              label="Español"
+              default
+            />
+          )}
+        </StyledVideo>
+      ) : (
+        <StyledIframe
+          key={url}
+          src={url}
+          allowFullScreen
+          allow="autoplay; fullscreen; encrypted-media"
+          title={title}
+        />
+      )}
+      <BackBtn ref={backRef} onClick={onClose}>
         &#8592; Volver
       </BackBtn>
     </Overlay>

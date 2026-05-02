@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://microtekdigital.com/cinemania"
+        version="1.0.0">
+
+  <tizen:application id="CinemaniaTVApp.cinemania"
+                     package="CinemaniaTVApp"
+                     required_version="3.0"/>
+
+  <content src="index.html"/>
+
+  <name>Cinemania</name>
+  <description>Tu plataforma de streaming para TV Samsung</description>
+
+  <icon src="icon.png"/>
+
+  <!-- Permisos necesarios -->
+  <tizen:privilege name="http://tizen.org/privilege/internet"/>
+  <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+
+  <!-- Configuración de pantalla -->
+  <tizen:setting screen-orientation="landscape"
+                 context-menu="disable"
+                 background-support="disable"
+                 encryption="disable"
+                 install-location="auto"
+                 hwkey-event="enable"/>
+
+  <!-- Acceso a internet -->
+  <access origin="*" subdomains="true"/>
+
+  <!-- Metadatos -->
+  <tizen:metadata key="http://samsung.com/tv/metadata/dnt" value="true"/>
+
+</widget>

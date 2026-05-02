@@ -95,6 +95,8 @@ function App() {
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [playingTitle, setPlayingTitle] = useState('');
   const [playingAsset, setPlayingAsset] = useState<Asset | null>(null);
+  const [playingSrt, setPlayingSrt] = useState<string | undefined>(undefined);
+  const [playingType, setPlayingType] = useState<string | undefined>(undefined);
   const [serverSelectAsset, setServerSelectAsset] = useState<Asset | null>(null);
   const [serverSelectSeason, setServerSelectSeason] = useState(1);
   const [serverSelectEpisode, setServerSelectEpisode] = useState(1);
@@ -193,6 +195,8 @@ function App() {
   const onClosePlayer = useCallback(() => {
     setPlayingUrl(null);
     setPlayingAsset(null);
+    setPlayingSrt(undefined);
+    setPlayingType(undefined);
   }, []);
   const onEpisodesPress = useCallback((asset: Asset) => {
     setEpisodeListAsset(asset);
@@ -203,11 +207,13 @@ function App() {
     setServerSelectEpisode(episode);
     setServerSelectAsset(asset);
   }, []);
-  const onSelectServer = useCallback((url: string, serverName: string) => {
+  const onSelectServer = useCallback((url: string, serverName: string, type?: string, srt?: string) => {
     setServerSelectAsset(null);
     setPlayingTitle(serverName);
     setPlayingUrl(url);
     setPlayingAsset(serverSelectAsset);
+    setPlayingType(type);
+    setPlayingSrt(srt);
     // Focus the back button in PlayerScreen
     setTimeout(() => setFocus('PLAYER_BACK'), 100);
     // Save watch progress when playback starts
@@ -261,15 +267,76 @@ function App() {
   const activeLoading = isSeriesActive ? seriesLoading : loading;
 
   // Build assetsMap from all categories for ContinueWatchingRow
+  const [progressAssets, setProgressAssets] = useState<Asset[]>([]);
+
   const assetsMap = React.useMemo(() => {
     const map = new Map<string, Asset>();
-    [...categories, ...seriesCategories, ...myListAssets.map(a => ({ id: 'mylist', title: '', assets: [a] }))].forEach(cat => {
+    [...categories, ...seriesCategories, ...myListAssets.map(a => ({ id: 'mylist', title: '', assets: [a] })), { id: 'progress', title: '', assets: progressAssets }].forEach(cat => {
       if ('assets' in cat) {
         cat.assets.forEach((a: Asset) => map.set(a.id, a));
       }
     });
     return map;
-  }, [categories, seriesCategories, myListAssets]);
+  }, [categories, seriesCategories, myListAssets, progressAssets]);
+
+  // Load assets for watch progress items not in any category
+  useEffect(() => {
+    if (watchProgressMap.size === 0) return;
+    const missingMovieSlugs = Array.from(watchProgressMap.values())
+      .filter(p => p.content_type === 'movie' && !assetsMap.has(p.slug))
+      .map(p => p.slug);
+    const missingSeriesSlugs = Array.from(watchProgressMap.values())
+      .filter(p => p.content_type === 'series' && !assetsMap.has(p.slug))
+      .map(p => p.slug);
+    if (missingMovieSlugs.length === 0 && missingSeriesSlugs.length === 0) return;
+
+    const fetches: Promise<Asset[]>[] = [];
+    if (missingMovieSlugs.length > 0) {
+      fetches.push(
+        supabase.from('movies').select('slug,title,year,poster,backdrop,rating,genre,overview,trailer')
+          .in('slug', missingMovieSlugs)
+          .then(({ data }) => (data ?? []).map((m: {slug: string; title: string; year: string|null; poster: string|null; backdrop: string|null; rating: number|null; genre: string[]; overview: string|null; trailer: string|null}) => ({
+            id: m.slug, title: m.title,
+            description: m.overview ?? '',
+            imageUrl: m.backdrop ?? m.poster ?? `https://picsum.photos/seed/${m.slug}/1920/1080`,
+            thumbnailUrl: m.poster ?? m.backdrop ?? `https://picsum.photos/seed/${m.slug}/320/180`,
+            year: m.year ? parseInt(m.year, 10) : undefined,
+            genre: m.genre?.[0] ?? undefined,
+            rating: m.rating ? String(m.rating) : undefined,
+            trailerUrl: m.trailer ?? undefined,
+            overview: m.overview ?? undefined,
+          })))
+      );
+    }
+    if (missingSeriesSlugs.length > 0) {
+      fetches.push(
+        supabase.from('series').select('slug,title,year,poster,backdrop,rating,genre,overview,trailer,seasons,status,tmdb_id')
+          .in('slug', missingSeriesSlugs)
+          .then(({ data }) => (data ?? []).map((s: {slug: string; title: string; year: string|null; poster: string|null; backdrop: string|null; rating: number|null; genre: string[]; overview: string|null; trailer: string|null; seasons: number|null; status: string|null; tmdb_id: number|null}) => ({
+            id: s.slug, title: s.title,
+            description: s.overview ?? '',
+            imageUrl: s.backdrop ?? s.poster ?? `https://picsum.photos/seed/${s.slug}/1920/1080`,
+            thumbnailUrl: s.poster ?? s.backdrop ?? `https://picsum.photos/seed/${s.slug}/320/180`,
+            year: s.year ? parseInt(s.year, 10) : undefined,
+            genre: s.genre?.[0] ?? undefined,
+            rating: s.rating ? String(s.rating) : undefined,
+            isSeries: true,
+            tmdbId: s.tmdb_id ?? undefined,
+            totalSeasons: s.seasons ?? 1,
+            trailerUrl: s.trailer ?? undefined,
+            overview: s.overview ?? undefined,
+          })))
+      );
+    }
+    Promise.all(fetches).then(results => {
+      const all = results.flat();
+      if (all.length > 0) setProgressAssets(prev => {
+        const map = new Map(prev.map(a => [a.id, a]));
+        all.forEach(a => map.set(a.id, a));
+        return Array.from(map.values());
+      });
+    });
+  }, [watchProgressMap]);
 
   // Play with progress: for series, use saved season/episode
   const onPlayWithProgress = useCallback((asset: Asset, progress: WatchProgress) => {
@@ -316,6 +383,8 @@ function App() {
           year={playingAsset?.year}
           genre={playingAsset?.genre}
           rating={playingAsset?.rating}
+          type={playingType}
+          srt={playingSrt}
           onClose={onClosePlayer}
         />
       )}

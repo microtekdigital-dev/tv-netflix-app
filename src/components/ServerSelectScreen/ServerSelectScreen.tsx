@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { useFocusable, FocusContext, resume, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { supabase } from '../../lib/supabase';
 
-interface Embed { url: string; lang: string | null; server: string | null; quality: string | null; }
+interface Embed { url: string; lang: string | null; server: string | null; quality: string | null; type?: string; srt?: string | null; }
 
 interface ServerSelectScreenProps {
   slug: string;
@@ -17,7 +17,7 @@ interface ServerSelectScreenProps {
   year?: number;
   genre?: string;
   rating?: string;
-  onSelectServer: (url: string, serverName: string) => void;
+  onSelectServer: (url: string, serverName: string, type?: string, srt?: string) => void;
   onClose: () => void;
 }
 
@@ -156,10 +156,10 @@ const ServerLang = styled.div`
 
 // ── Server card ───────────────────────────────────────────────────────────────
 
-function ServerCardItem({ embed, index, onSelect, isFirst }: { embed: Embed; index: number; onSelect: (url: string, name: string) => void; isFirst?: boolean }) {
+function ServerCardItem({ embed, index, onSelect, isFirst }: { embed: Embed; index: number; onSelect: (url: string, name: string, type?: string, srt?: string) => void; isFirst?: boolean }) {
   const name = embed.server || embed.lang || `Servidor ${index + 1}`;
   const { ref, focused, focusSelf } = useFocusable<object, HTMLButtonElement>({
-    onEnterPress: () => onSelect(embed.url, name),
+    onEnterPress: () => onSelect(embed.url, name, embed.type, embed.srt ?? undefined),
     focusKey: `SERVER-${index}`,
     onArrowPress: (dir) => {
       if (dir === 'up') { setFocus('SS_BACK'); return false; }
@@ -168,9 +168,9 @@ function ServerCardItem({ embed, index, onSelect, isFirst }: { embed: Embed; ind
   });
   useEffect(() => { if (isFirst) focusSelf(); }, [isFirst]);
   return (
-    <ServerCard ref={ref} focused={focused} onClick={() => onSelect(embed.url, name)}>
+    <ServerCard ref={ref} focused={focused} onClick={() => onSelect(embed.url, name, embed.type, embed.srt ?? undefined)}>
       <ServerName>{name}</ServerName>
-      {embed.lang && <ServerLang>{embed.lang}</ServerLang>}
+      {embed.lang && <ServerLang>{embed.lang}{embed.type === 'drive' ? ' ▶ Drive' : ''}</ServerLang>}
     </ServerCard>
   );
 }
